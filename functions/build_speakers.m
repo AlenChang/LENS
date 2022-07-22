@@ -1,11 +1,14 @@
-function speaker = build_speakers(num_speakers, speaker_center, speaker_spacing)
+function speaker = build_speakers(num_speakers, speaker_center, speaker_spacing, fc)
 speaker.num = num_speakers;
 speaker.center = reshape(speaker_center, 1, 2);
 speaker.locs = zeros(speaker.num, 2);
-speaker.fc = 20e3;
+speaker.design_fc = 20e3;
 speaker.c = 34300;
+speaker.fc = fc;
 speaker.lambda = speaker.c / speaker.fc;
-speaker.speaker_spacing = speaker.lambda * speaker_spacing;
+speaker.speaker_spacing = speaker.c / speaker.design_fc * speaker_spacing;
+
+
 
 for ti = 1:speaker.num
     speaker.locs(ti, 2) = (- (speaker.num - 1) / 2 + ti - 1) * speaker.speaker_spacing;

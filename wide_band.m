@@ -2,32 +2,39 @@ addpath('./functions/')
 % clc
 close all
 
+% freq = 10e3:500:30e3;
+freq = 12e3;
+amps = zeros(size(freq));
+for zi = 1:length(freq)
 %% define speakers
 num_speakers = 4;
 speaker_center = [0, 0];
 speaker_spacing = 0.5;
-fc = 19e3;
+fc = freq(zi);
 speaker = build_speakers(num_speakers, speaker_center, speaker_spacing, fc);
 
 %% define lens
 
-field_len2 = 50;
-gridsize2 = speaker.lambda / 20;
-field_lens = build_sound_field(field_len2, field_len2, gridsize2);
-
-field_len_x = 20;
+field_len_x = 200;
 field_len_y = 20;
-gridsize = speaker.lambda / 50;
-field_speaker = build_sound_field(field_len_x, field_len_y, gridsize);
+gridsize2 = speaker.lambda / 20;
+field_lens = build_sound_field(field_len_x, field_len_y, gridsize2);
+
+field_speaker_x = 20;
+field_speaker_y = 20;
+gridsize = speaker.lambda / 20;
+field_speaker = build_sound_field(field_speaker_x, field_speaker_y, gridsize);
 
 num_cells = 16;
-lens_center = [-field_len2/2, 0];
+lens_center = [-field_len_x/2, 0];
 steering_angle = 0; % (-90, 90)
-focusing_point = [-field_len2/2+10, 10 * tan(steering_angle / 180 * pi)];
+focusing_point = [-field_len_x/2+10, 10 * tan(steering_angle / 180 * pi)];
 lens_spacing = 0.5;
-lens = build_speakers(num_cells, lens_center, lens_spacing, 20e3);
+lens = build_speakers(num_cells, lens_center, lens_spacing, fc);
 
 lens = get_lens_delay(lens, speaker, field_speaker);
+% lens = compensate_phase_shift_frequency(lens);
+
 focusing_type = 'direction'; % {'direction', 'point'}
 lens = backstepping(lens, focusing_point, focusing_type);
 % lens.weights = conj(lens.weights);
@@ -42,9 +49,9 @@ target = build_target_lens(field_speaker, target_coordinates, lens);
 
 target = desired_pressure_at_samples_lens(target, lens);
 
-
 %% solve SFR model
 speaker = SRF_solution(target, speaker);
+% speaker.weights = exp(1j*pi/2);
 
 %% Compute sound field
 
@@ -53,6 +60,7 @@ field_speaker = compute_field_pressure(field_speaker, speaker);
 tmp = lens;
 tmp.locs(:, 1) = target.locs(round(end/2), 1);
 lens.weights = getCoordinates(field_speaker, tmp);
+lens.weights = lens.weights / sum(abs(lens.weights));
 lens.weights = lens.weights .* lens.delay;
 field_lens = compute_field_pressure(field_lens, lens);
 
@@ -104,7 +112,7 @@ set(gca, 'fontsize', 20)
 
 % figure_init('LENS SOUND FIELD')
 subplot(223)
-imagesc(field_lens.x, field_lens.y, abs(field_lens.sound_pressure))
+imagesc(field_lens.y, field_lens.x, abs(field_lens.sound_pressure))
 hold on
 plot(lens.focusing_point(:, 2), lens.focusing_point(:, 1), 'ro')
 plot(lens.locs(:, 2), lens.locs(:, 1), 'gs', 'MarkerFaceColor','g')
@@ -112,7 +120,27 @@ set(gca, 'XTick', [], 'YTick', [])
 title(sprintf('Steering Angle: %.2f', steering_angle), 'FontSize', 20)
 xlabel('y')
 ylabel('x')
-pbaspect([1, 1, 1])
+pbaspect([field_lens.len_y, field_lens.len_x, 1])
+
+[x, y] = getCoordinatesCore(field_lens, lens.focusing_point);
+focusing_point_amp = field_lens.sound_pressure(x, y);
+amps(zi) = abs(sum(lens.weights));
+
+fprintf("**********************\n")
+fprintf("**********************\n")
+fprintf("Amplitude = %.2f in frequency = %i\n",amps(zi), fc)
+fprintf("**********************\n")
+fprintf("**********************\n")
+
+end
+
+locs = zeros(length(field_lens.x), 2);
+locs(:, 1) = field_lens.x;
+[x, y] = getCoordinatesCore(field_lens, locs);
+aa = field_lens.sound_pressure(x, y);
+figure(3)
+clf
+plot(abs(aa))
 
 
 

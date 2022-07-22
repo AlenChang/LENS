@@ -1,16 +1,18 @@
 function field = compute_field_pressure(field, speaker)
 fprintf("================\n")
 fprintf("Computing sound presure fiel with given speakers...\n")
+field_locs = field.locs;
 for ti = 1:speaker.num
     locs = speaker.locs(ti, :);
-    for mi = 1:size(field.locs, 1)
-        for ni = 1:size(field.locs, 2)
-            d = compute_distance(field.locs(mi, ni, :), locs);
-            field.sound_pressure(mi, ni) = field.sound_pressure(mi, ni) +...
-                speaker.weights(ti) * exp(1j * (-2 * pi * speaker.fc * d / speaker.c));
+    d = zeros(size(field.sound_pressure));
+    for mi = 1:size(field_locs, 1)
+        for ni = 1:size(field_locs, 2)
+            d(mi, ni) = compute_distance(field_locs(mi, ni, :), locs); 
         end
-
     end
+    field.sound_pressure = field.sound_pressure +...
+                speaker.weights(ti) * exp(1j * (-2 * pi * speaker.fc * d / speaker.c));
+%                 ./ (2*pi*sqrt(d));
 end
 fprintf("Done!!!\n")
 
