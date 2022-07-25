@@ -1,21 +1,21 @@
-%%%%%%%%%%%%%%%
-%%% 7-24: 不同频率的声音通过lens会有不同的相位延迟，需要明确如何计算这种相位延迟
-%%%%%%%%%%%%%%%
-
 addpath('./functions/')
 % clc
 close all
 
 % freq = 10e3:500:30e3;
 freq = 20e3;
+sweep_angle = [-80:10:80];
 amps = zeros(size(freq));
+cmap = jet;
+index = round(linspace(1, size(cmap, 1), length(sweep_angle)));
+cmap = cmap(index, :);
 
-for zi = 1:length(freq)
+for zi = 1:length(sweep_angle)
     %% define speakers
     num_speakers = 9;
     speaker_center = [0, 0];
     speaker_spacing = 0.8;
-    fc = freq(zi);
+    fc = freq;
     speaker = build_speakers(num_speakers, speaker_center, speaker_spacing, fc);
 
     %% define lens
@@ -32,7 +32,7 @@ for zi = 1:length(freq)
 
     num_cells = 16;
     lens_center = [-field_len_x / 2, 0];
-    steering_angle = 50; % (-90, 90)
+    steering_angle = sweep_angle(zi); % (-90, 90)
     focusing_point = [-field_len_x / 2 + 10, 10 * tan(steering_angle / 180 * pi)];
     lens_spacing = 0.5;
     lens = build_speakers(num_cells, lens_center, lens_spacing, fc);
@@ -132,10 +132,11 @@ for zi = 1:length(freq)
     % theta = theta - 90;
     % beampattern = circshift(beampattern, round(-length(beampattern) / 2));
     figure(3)
-    clf
-    plot(theta, (abs(beampattern)), 'linewidth', 2);
+    % clf
+    plot(theta, (abs(beampattern)), 'linewidth', 2, 'color', cmap(zi, :));
+    hold on
     xlabel('Angle')
-    ylabel('dB')
+    ylabel('Magnitude')
     set(gca, 'fontsize', 20)
 
     fprintf("**********************\n")

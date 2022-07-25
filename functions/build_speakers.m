@@ -7,6 +7,7 @@ speaker.c = 34300;
 speaker.fc = fc;
 speaker.lambda = speaker.c / speaker.fc;
 speaker.speaker_spacing = speaker.c / speaker.design_fc * speaker_spacing;
+speaker.weights_out = ones(speaker.num, 1);
 
 
 

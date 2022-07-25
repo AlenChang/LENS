@@ -6,7 +6,8 @@ addpath('./functions/')
 num_speakers = 9;
 speaker_center = [0, 0];
 speaker_spacing = 0.5; % 0.5 *lambda
-speaker = build_speakers(num_speakers, speaker_center, speaker_spacing);
+fc = 20e3;
+speaker = build_speakers(num_speakers, speaker_center, speaker_spacing, fc);
 
 %% STEP2 define targets
 num_target =120;
@@ -22,7 +23,7 @@ speaker = SRF_solution(target, speaker);
 %% STEP5 Compute sound field
 field_len = 20;
 gridsize = speaker.lambda / 50;
-field = build_sound_field(field_len, gridsize);
+field = build_sound_field(field_len, field_len, gridsize);
 field = compute_field_pressure(field, speaker);
 
 

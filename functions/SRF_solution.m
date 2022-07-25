@@ -1,14 +1,14 @@
 function speaker = SRF_solution(target, speaker)
 
 R = transfer_func(target, speaker);
-speaker.weights = solve_least_square(R, target.sound_pressure);
-speaker.weights = speaker.weights ./ (sum(abs(speaker.weights)));
+speaker.weights_out = solve_least_square(R, target.sound_pressure);
+speaker.weights_out = speaker.weights_out ./ (sum(abs(speaker.weights_out)));
 
 fprintf("================\n")
 fprintf("Amplitude of computed weights:\n")
 for ti = 1 : speaker.num
     fprintf("|weights(%i)| = %.3f, \angle weights(%i) = %.3f \n",...
-        ti, abs(speaker.weights(ti)), ti, angle(speaker.weights(ti))/pi*180)
+        ti, abs(speaker.weights_out(ti)), ti, angle(speaker.weights_out(ti))/pi*180)
 end
 
 end
