@@ -14,14 +14,14 @@ rng(1)
 
 for mi = 1:100
 
-    lens_delay = exp(1j * rand(lens.num, 1) * 2 * pi);
+    lens_delay = exp(1j * rand(16, 1) * 2 * pi);
     close all
 
     for zi = 1:length(sweep_angle)
         %% define speakers
         num_speakers = 9;
         speaker_center = [0, 0];
-        speaker_spacing = 0.8;
+        speaker_spacing = 0.5;
         fc = freq;
         speaker = build_speakers(num_speakers, speaker_center, speaker_spacing, fc);
 
@@ -157,7 +157,7 @@ for mi = 1:100
     end
 
     fig = figure(3);
-    filename = "figures/wide_angle_random_phase_" + string(mi);
+    filename = "figures2/wide_angle_random_phase_" + string(mi);
     saveas(fig, "./src/" + filename + ".png");
     writematrix(angle(lens_delay), "./src/" + filename + ".txt")
 
