@@ -11,7 +11,7 @@ index = round(linspace(1, size(cmap, 1), length(sweep_angle)));
 cmap = cmap(index, :);
 
 rng(1)
-num_test = 1;
+num_test = 100;
 amps_total = zeros(num_test, 1);
 for mi = 1:num_test
 
@@ -146,7 +146,8 @@ for mi = 1:num_test
         figure(3)
         % clf
         plot(theta, (abs(beampattern)), 'linewidth', 2, 'color', cmap(zi, :));
-        amps_record(zi) = max(abs(beampattern));
+        id = theta == steering_angle;
+        amps_record(zi) = abs(beampattern(id));
         hold on
         xlabel('Angle')
         ylabel('Magnitude')
@@ -167,6 +168,22 @@ for mi = 1:num_test
     writematrix(angle(lens_delay), "./src/" + filename + ".txt")
 
 end
+
+%%
+figure(4)
+
+clf
+histogram(amps_total, 20);
+amax = max(amps_total);
+amin = min(amps_total);
+amedian = median(amps_total);
+
+title(sprintf("max=%.2f, min=%.2f, median=%.2f", amax, amin, amedian))
+set(gca, 'fontsize', 20)
+fig = figure(4);
+filename = "figures2/final_results";
+saveas(fig, "./src/" + filename + ".png");
+writematrix(amps_total, "./src/" + filename + ".txt")
 
 % locs = zeros(length(field_lens.x), 2);
 % locs(:, 1) = field_lens.x;
