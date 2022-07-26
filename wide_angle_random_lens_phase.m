@@ -11,12 +11,14 @@ index = round(linspace(1, size(cmap, 1), length(sweep_angle)));
 cmap = cmap(index, :);
 
 rng(1)
-
-for mi = 1:100
+num_test = 1;
+amps_total = zeros(num_test, 1);
+for mi = 1:num_test
 
     lens_delay = exp(1j * rand(16, 1) * 2 * pi);
     close all
 
+    amps_record = zeros(length(sweep_angle), 1);
     for zi = 1:length(sweep_angle)
         %% define speakers
         num_speakers = 9;
@@ -44,9 +46,10 @@ for mi = 1:100
         lens_spacing = 0.5;
         lens = build_speakers(num_cells, lens_center, lens_spacing, fc);
 
-        % lens = get_lens_delay(lens, speaker, field_speaker);
+        lens = get_lens_delay(lens, speaker, field_speaker);
         lens.delay = lens_delay;
         lens.back_step = lens.delay;
+
         % lens = compensate_phase_shift_frequency(lens);
 
         focusing_type = 'direction'; % {'direction', 'point'}
@@ -143,6 +146,7 @@ for mi = 1:100
         figure(3)
         % clf
         plot(theta, (abs(beampattern)), 'linewidth', 2, 'color', cmap(zi, :));
+        amps_record(zi) = max(abs(beampattern));
         hold on
         xlabel('Angle')
         ylabel('Magnitude')
@@ -155,8 +159,9 @@ for mi = 1:100
         fprintf("**********************\n")
 
     end
-
+    amps_total(mi) = sum(amps_record);
     fig = figure(3);
+    title(sprintf("Energy sum = %.2f", amps_total(mi)))
     filename = "figures2/wide_angle_random_phase_" + string(mi);
     saveas(fig, "./src/" + filename + ".png");
     writematrix(angle(lens_delay), "./src/" + filename + ".txt")

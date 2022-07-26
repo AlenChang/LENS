@@ -9,7 +9,7 @@ stepsize=0.1;
 
 fc = 30e9;%Working frequency
 c = 3e8;%Light speed
-d=(c/fc)/2;%Use half wavelength as distance of element 
+d=(c/fc)/2;%Use half wavelength as distance of element
 thetaDeg=0:stepsize:180;%The discretization of scanning angle
 theta = thetaDeg*pi/180;%into arc
 
