@@ -1,4 +1,4 @@
-function speaker = SRF_solution(target, speaker)
+function [speaker, R] = SRF_solution(target, speaker)
 
 R = transfer_func(target, speaker);
 speaker.weights_out = solve_least_square(R, target.sound_pressure);

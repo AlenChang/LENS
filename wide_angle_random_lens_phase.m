@@ -4,11 +4,13 @@ close all
 
 % freq = 10e3:500:30e3;
 freq = 20e3;
-sweep_angle = [0];
+sweep_angle = [-40:10:40];
 amps = zeros(size(freq));
 cmap = jet;
 index = round(linspace(1, size(cmap, 1), length(sweep_angle)));
 cmap = cmap(index, :);
+
+parameter_source = "optimal";
 
 rng(1)
 num_test = 1;
@@ -34,7 +36,7 @@ for mi = 1:num_test
         gridsize2 = speaker.lambda / 20;
         field_lens = build_sound_field(field_len_x, field_len_y, gridsize2);
 
-        field_speaker_x = 20;
+        field_speaker_x = 10;
         field_speaker_y = 20;
         gridsize = speaker.lambda / 20;
         field_speaker = build_sound_field(field_speaker_x, field_speaker_y, gridsize);
@@ -47,8 +49,14 @@ for mi = 1:num_test
         lens = build_speakers(num_cells, lens_center, lens_spacing, fc);
 
         lens = get_lens_delay(lens, speaker, field_speaker);
-        % lens.delay = lens_delay;
-        % lens.back_step = lens.delay;
+        if(strcmp(parameter_source, "random"))
+            lens.delay = lens_delay;
+            lens.back_step = lens.delay;
+        elseif(strcmp(parameter_source, "optimal"))
+            load optimal.mat len_theta
+            lens.delay = len_theta;
+            lens.back_step = lens.delay;
+        end
 
         % lens = compensate_phase_shift_frequency(lens);
 
@@ -68,6 +76,10 @@ for mi = 1:num_test
 
         %% solve SFR model
         speaker = SRF_solution(target, speaker);
+        if(strcmp(parameter_source, "optimal"))
+            load optimal.mat speaker_w
+            speaker.weights_out = speaker_w(zi, :);
+        end
         % speaker.weights = exp(1j*pi/2);
 
         %% Compute sound field
@@ -184,6 +196,23 @@ fig = figure(4);
 filename = "figures2/final_results";
 saveas(fig, "./src/" + filename + ".png");
 writematrix(amps_total, "./src/" + filename + ".txt")
+
+
+figure(5)
+clf
+plot(unwrap(angle(len_theta)), 'linewidth', 2)
+title("lens phase delay")
+xlabel("Lens index")
+ylabel("Phase delay")
+set(gca, 'fontsize', 20)
+
+figure(6)
+clf
+imagesc(abs(speaker_w))
+xlabel("Array")
+ylabel("Direction")
+title("Amplitude of w")
+set(gca, 'fontsize', 20)
 
 % locs = zeros(length(field_lens.x), 2);
 % locs(:, 1) = field_lens.x;
