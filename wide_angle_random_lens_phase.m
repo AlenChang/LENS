@@ -4,14 +4,14 @@ close all
 
 % freq = 10e3:500:30e3;
 freq = 20e3;
-sweep_angle = [-80:10:80];
+sweep_angle = [0];
 amps = zeros(size(freq));
 cmap = jet;
 index = round(linspace(1, size(cmap, 1), length(sweep_angle)));
 cmap = cmap(index, :);
 
 rng(1)
-num_test = 100;
+num_test = 1;
 amps_total = zeros(num_test, 1);
 for mi = 1:num_test
 
@@ -34,7 +34,7 @@ for mi = 1:num_test
         gridsize2 = speaker.lambda / 20;
         field_lens = build_sound_field(field_len_x, field_len_y, gridsize2);
 
-        field_speaker_x = 10;
+        field_speaker_x = 20;
         field_speaker_y = 20;
         gridsize = speaker.lambda / 20;
         field_speaker = build_sound_field(field_speaker_x, field_speaker_y, gridsize);
@@ -47,8 +47,8 @@ for mi = 1:num_test
         lens = build_speakers(num_cells, lens_center, lens_spacing, fc);
 
         lens = get_lens_delay(lens, speaker, field_speaker);
-        lens.delay = lens_delay;
-        lens.back_step = lens.delay;
+        % lens.delay = lens_delay;
+        % lens.back_step = lens.delay;
 
         % lens = compensate_phase_shift_frequency(lens);
 
