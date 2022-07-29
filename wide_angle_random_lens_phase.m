@@ -4,7 +4,7 @@ close all
 
 % freq = 10e3:500:30e3;
 freq = 20e3;
-sweep_angle = [-40:10:40];
+sweep_angle = [-40:5:40];
 amps = zeros(size(freq));
 cmap = jet;
 index = round(linspace(1, size(cmap, 1), length(sweep_angle)));
@@ -18,7 +18,7 @@ amps_total = zeros(num_test, 1);
 for mi = 1:num_test
 
     lens_delay = exp(1j * rand(16, 1) * 2 * pi);
-    close all
+    % close all
 
     amps_record = zeros(length(sweep_angle), 1);
     for zi = 1:length(sweep_angle)
@@ -90,7 +90,7 @@ for mi = 1:num_test
         tmp = lens;
         tmp.locs(:, 1) = target.locs(round(end / 2), 1);
         lens.weights_in = getCoordinates(field_speaker, tmp);
-        lens.weights_in = lens.weights_in / sum(abs(lens.weights_in));
+        % lens.weights_in = lens.weights_in / sum(abs(lens.weights_in));
         lens.weights_out = lens.weights_in .* lens.delay;
         field_lens = compute_field_pressure(field_lens, lens);
 
@@ -200,7 +200,7 @@ writematrix(amps_total, "./src/" + filename + ".txt")
 
 figure(5)
 clf
-plot(unwrap(angle(len_theta)), 'linewidth', 2)
+plot(unwrap(angle(lens.delay)), 'linewidth', 2)
 title("lens phase delay")
 xlabel("Lens index")
 ylabel("Phase delay")
