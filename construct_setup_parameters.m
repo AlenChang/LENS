@@ -4,7 +4,7 @@ close all
 
 % freq = 10e3:500:30e3;
 freq = 20e3;
-sweep_angle = [-40:5:40];
+sweep_angle = [-60:5:60];
 amps = zeros(size(freq));
 cmap = jet;
 index = round(linspace(1, size(cmap, 1), length(sweep_angle)));

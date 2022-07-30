@@ -4,13 +4,14 @@ close all
 
 % freq = 10e3:500:30e3;
 freq = 20e3;
-sweep_angle = [-40:5:40];
+sweep_angle = [-60:5:60];
 amps = zeros(size(freq));
 cmap = jet;
 index = round(linspace(1, size(cmap, 1), length(sweep_angle)));
 cmap = cmap(index, :);
 
 parameter_source = "optimal";
+% parameter_source = "raw";
 
 rng(1)
 num_test = 1;
@@ -80,6 +81,8 @@ for mi = 1:num_test
             load optimal.mat speaker_w
             speaker.weights_out = speaker_w(zi, :);
         end
+
+
         % speaker.weights = exp(1j*pi/2);
 
         %% Compute sound field
@@ -100,7 +103,7 @@ for mi = 1:num_test
         set(gcf, 'Position', [210.6000 69.8000 1.0934e+03 980.2000])
         clf
         subplot(221)
-        imagesc(field_speaker.y, field_speaker.x, real(field_speaker.sound_pressure))
+        imagesc(field_speaker.y, field_speaker.x, log(abs(field_speaker.sound_pressure)))
         hold on
         plot(target.locs(:, 2), target.locs(:, 1), 'ro')
         plot(speaker.locs(:, 2), speaker.locs(:, 1), 'r*')
@@ -137,7 +140,7 @@ for mi = 1:num_test
 
         % figure_init('LENS SOUND FIELD')
         subplot(223)
-        imagesc(field_lens.y, field_lens.x, abs(field_lens.sound_pressure))
+        imagesc(field_lens.y, field_lens.x, log(abs(field_lens.sound_pressure)))
         hold on
         plot(lens.focusing_point(:, 2), lens.focusing_point(:, 1), 'ro')
         plot(lens.locs(:, 2), lens.locs(:, 1), 'gs', 'MarkerFaceColor', 'g')
