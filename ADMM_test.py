@@ -45,10 +45,10 @@ def training_loop(model, optimizer, n=2000, max_loss=999, COMMENTS = " "):
         losses.append(loss.cpu().detach().numpy())
         if(loss < max_loss):
             torch.save(model.state_dict(), 'best_model.pkl')
-            print(COMMENTS + " iter: ", i,". loss: ", loss.cpu().detach().numpy())
             max_loss = loss
-        if(i % 200 == 0):
-            print(COMMENTS + " iter: ", i,".")
+        if(i % 500 == 0):
+            print(COMMENTS + " iter: ", i,". loss: ", loss.cpu().detach().numpy())
+            # print(COMMENTS + " iter: ", i,".")
     return losses, max_loss
 
 m = Model(device).to(device)
@@ -62,7 +62,7 @@ optimizer = torch.optim.Adam(m.parameters(), lr=0.005)
 
 n = 2000
 iters = 21
-max_loss = 9999
+
 # for ni in range(iters):
 #     m.train()
 #     if(ni % 2 ==0):
@@ -77,8 +77,14 @@ max_loss = 9999
 #     m.load_state_dict(torch.load('best_model.pkl'))
 
 # m.theta.requires_grad = False
-losses, max_loss = training_loop(m, optimizer, 8000, max_loss)
-m.load_state_dict(torch.load('best_model.pkl'))
+
+repeat_num = 1
+for ti in range(repeat_num):
+    print("test ", ti)
+    # m.reset(device)
+    max_loss = 9999
+    losses, max_loss = training_loop(m, optimizer, 4000, max_loss)
+    m.load_state_dict(torch.load('best_model.pkl'))
 
 
 

@@ -19,17 +19,23 @@ load parameters.mat
 out = abs(speaker_w * G * diag(len_theta) * A.');
 
 figure(11)
-set(gcf,'Position', [54 3 464 944])
+set(gcf,'Position', [123.4000 45.8000 1264 944])
 clf
-subplot(311)
+subplot(221)
 imagesc(sweep_angle, sweep_angle, out)
 pbaspect([1,1,1])
 % ax = gca;
+engy = 0;
+shift_id = 2;
+for mi = -shift_id:shift_id
+    engy = engy + sum(diag(out, mi));
+end
+engy_ratio = engy / sum(out(:));
 set(gca, 'xtick', get(gca, 'ytick'))
-title("Beam patterns in different directions")
+title(sprintf("Beam patterns, energy ratio = %.3f", engy_ratio))
 set(gca, 'fontsize', 15)
 
-subplot(312)
+subplot(222)
 imagesc(1:size(speaker_w, 2), sweep_angle, abs(speaker_w))
 xlabel('Speaker')
 ylabel('Directions')
@@ -38,12 +44,22 @@ set(gca, 'fontsize', 15)
 colorbar
 pbaspect([1,1,1])
 
-subplot(313)
+subplot(223)
 plot(unwrap(angle(len_theta)), 'linewidth', 2)
 xlabel('LENS cell index')
 ylabel('Phase')
 set(gca, 'fontsize', 15)
 title("LENS Phase")
+pbaspect([1,1,1])
+
+subplot(224)
+amps_diag = abs(diag(out));
+plot(sweep_angle, amps_diag, 'linewidth', 2)
+xlabel('Directions')
+ylabel('Amps')
+set(gca, 'fontsize', 15)
+title(sprintf("Amps vs Directions, VAR = %.5f", var(amps_diag)))
+% axis([])
 pbaspect([1,1,1])
 pause
 
