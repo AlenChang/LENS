@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import scipy.io
 import random
+# from torch.functional import F
 
 
 def calc_entropy(input_tensor):
@@ -70,7 +71,7 @@ class Model(nn.Module):
 class Model2(nn.Module):
     """Custom Pytorch model for gradient optimization.
     """
-    def __init__(self):
+    def __init__(self, device):
         super().__init__()
         # initialize weights with random numbers
         mat = scipy.io.loadmat('parameters.mat')
@@ -79,15 +80,46 @@ class Model2(nn.Module):
         self.code_num = mat['A'].shape[0]
         self.lens_num = mat['A'].shape[1]
 
-        self.A = torch.from_numpy(mat['A']).to(torch.cfloat)
-        self.G = torch.from_numpy(mat['G']).to(torch.cfloat)
+        self.A = torch.from_numpy(mat['A']).to(torch.cfloat).to(device)
+        self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)
 
-        self.w = torch.rand(self.code_num, self.array_num, dtype=torch.cfloat)
-        self.theta = torch.randn(self.lens_num, 1, dtype=torch.cfloat)
+        self.w = torch.rand(self.code_num, self.array_num, dtype=torch.cfloat).to(device)
+        self.theta = torch.randn(self.lens_num, 1, dtype=torch.cfloat).to(device)
 
-        linear_in = self.code_num**2 + self.code_num * self.array_num + self.lens_num
-        policy = nn.Sequential(
-            nn.Linear(linear_in, linear_in / 2)
+        
+        self.net_beampattern = nn.Sequential(
+            nn.Linear(self.code_num**2, 128),
+            nn.ReLU()
+        )
+        
+        self.net_w = nn.Sequential(
+            nn.Linear(self.code_num*self.array_num*2, 128),
+            nn.ReLU()
+        )
+        
+        self.net_theta = nn.Sequential(
+            nn.Linear(self.lens_num * 2, 16),
+            nn.ReLU()
+        )
+        
+        self.policy = nn.Sequential(
+            nn.Linear(128+128+16, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU()
+        )
+        self.policy_w = nn.Sequential(
+            nn.Liear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, self.code_num*self.array_num)
+        )
+        
+        self.policy_theta = nn.Sequential(
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, self.lens_num)
         )
 
 
@@ -107,11 +139,33 @@ class Model2(nn.Module):
         return sout
     def compute_award(self, sout, K):
         return -(1+K)*torch.sum(torch.diag(sout).abs()) + K*torch.sum(sout.abs())
+    def get_feature_w(self):
+        w = self.get_w().view(-1)
+        feature_w = torch.hstack((w.real(), w.imag))
+        return feature_w
+    def get_feature_theta(self):
+        theta = self.get_theta().view(-1)
+        feature_theta = torch.hstack((theta.real(), theta.imag))
+        return feature_theta
+    def get_feature_bp(self, bp):
+        return bp.abs().view(-1)
+        
+
 
 
     def forward(self):
+        sout1 = self.compute_out_mat()
+        feature_w = nn.functional.normalize(self.net_w(self.get_feature_w()))
+        feature_theta = nn.functional.normalize(self.net_theta(self.get_feature_theta()))
+        feature_bp = nn.functional.normalize(self.net_bp(self.get_feature_bp(sout1)))
+        
+        features = torch.hstack((feature_w, feature_theta, feature_bp))
+        
+        features = self.policy(features)
+        self.w = self.policy_w(features) + self.w
+        self.theta = self.policy_theta(features) + self.theta
+        
         sout = self.compute_out_mat()
-
         K = 0.5
         out = self.compute_award(sout, K)
         return out
