@@ -17,7 +17,7 @@ def calc_entropy(input_tensor):
 class Model(nn.Module):
     """Custom Pytorch model for gradient optimization.
     """
-    def __init__(self):
+    def __init__(self, device):
         super().__init__()
         # initialize weights with random numbers
         mat = scipy.io.loadmat('parameters.mat')
@@ -31,10 +31,10 @@ class Model(nn.Module):
         self.theta = nn.Parameter(torch.randn(self.lens_num, 1, dtype=torch.cfloat))
 
         # mat = scipy.io.loadmat('parameters.mat')
-        self.A = torch.from_numpy(mat['A']).to(torch.cfloat)
+        self.A = torch.from_numpy(mat['A']).to(torch.cfloat).to(device)
         # self.A = torch.rand(self.code_num, self.lens_num, dtype=torch.cfloat)
 
-        self.G = torch.from_numpy(mat['G']).to(torch.cfloat)
+        self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)
         # self.G = torch.rand(self.array_num, self.lens_num, dtype=torch.cfloat)
     def get_w(self):
         return self.w / torch.abs(self.w)

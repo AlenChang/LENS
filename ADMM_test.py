@@ -42,16 +42,16 @@ def training_loop(model, optimizer, n=2000, max_loss=999, COMMENTS = " "):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        losses.append(loss)
+        losses.append(loss.cpu().detach().numpy())
         if(loss < max_loss):
             torch.save(model.state_dict(), 'best_model.pkl')
-            print(COMMENTS + " iter: ", i,". loss: ", loss.to(device).detach().numpy())
+            print(COMMENTS + " iter: ", i,". loss: ", loss.cpu().detach().numpy())
             max_loss = loss
         if(i % 200 == 0):
             print(COMMENTS + " iter: ", i,".")
     return losses, max_loss
 
-m = Model().to(device)
+m = Model(device).to(device)
 # %%
 # instantiate model
 
@@ -99,8 +99,8 @@ plt.plot(losses)
 
 # %%
 # print estimated weigths
-w = m.get_w().to(device).detach().numpy()
-theta = m.get_theta().to(device).detach().numpy()
+w = m.get_w().cpu().detach().numpy()
+theta = m.get_theta().cpu().detach().numpy()
 
 # print("Weights: ", w)
 mdic = {"speaker_w": w, "len_theta":theta}
