@@ -14,6 +14,7 @@ rng(1)
 num_test = 1;
 amps_total = zeros(num_test, 1);
 A = zeros(length(sweep_angle), 16);
+SVecs = zeros(181, 16);
 
 lens_delay = exp(1j * rand(16, 1) * 2 * pi);
 close all
@@ -74,6 +75,7 @@ for zi = 1:1
     for ni = 1 : length(sweep_angle)
         target_angle = sweep_angle(ni);
         A(ni, :) = steerVec(:, target_angle+91);
+        % SVecs()
     end
 
 end

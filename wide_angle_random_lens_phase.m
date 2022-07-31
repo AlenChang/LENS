@@ -13,6 +13,43 @@ cmap = cmap(index, :);
 parameter_source = "optimal";
 % parameter_source = "raw";
 
+load optimal.mat
+load parameters.mat
+
+out = abs(speaker_w * G * diag(len_theta) * A.');
+
+figure(11)
+set(gcf,'Position', [54 3 464 944])
+clf
+subplot(311)
+imagesc(sweep_angle, sweep_angle, out)
+pbaspect([1,1,1])
+% ax = gca;
+set(gca, 'xtick', get(gca, 'ytick'))
+title("Beam patterns in different directions")
+set(gca, 'fontsize', 15)
+
+subplot(312)
+imagesc(1:size(speaker_w, 2), sweep_angle, abs(speaker_w))
+xlabel('Speaker')
+ylabel('Directions')
+title("MIMO Weights")
+set(gca, 'fontsize', 15)
+colorbar
+pbaspect([1,1,1])
+
+subplot(313)
+plot(unwrap(angle(len_theta)), 'linewidth', 2)
+xlabel('LENS cell index')
+ylabel('Phase')
+set(gca, 'fontsize', 15)
+title("LENS Phase")
+pbaspect([1,1,1])
+pause
+
+out_amp = diag(out);
+[~, plot_order] = sort(out_amp);
+
 rng(1)
 num_test = 1;
 amps_total = zeros(num_test, 1);
@@ -44,7 +81,7 @@ for mi = 1:num_test
 
         num_cells = 16;
         lens_center = [-field_len_x / 2, 0];
-        steering_angle = sweep_angle(zi); % (-90, 90)
+        steering_angle = sweep_angle(plot_order(zi)); % (-90, 90)
         focusing_point = [-field_len_x / 2 + 10, 10 * tan(steering_angle / 180 * pi)];
         lens_spacing = 0.5;
         lens = build_speakers(num_cells, lens_center, lens_spacing, fc);
@@ -54,7 +91,6 @@ for mi = 1:num_test
             lens.delay = lens_delay;
             lens.back_step = lens.delay;
         elseif(strcmp(parameter_source, "optimal"))
-            load optimal.mat len_theta
             lens.delay = len_theta;
             lens.back_step = lens.delay;
         end
@@ -78,8 +114,7 @@ for mi = 1:num_test
         %% solve SFR model
         speaker = SRF_solution(target, speaker);
         if(strcmp(parameter_source, "optimal"))
-            load optimal.mat speaker_w
-            speaker.weights_out = speaker_w(zi, :);
+            speaker.weights_out = speaker_w(plot_order(zi), :);
         end
 
 
@@ -152,7 +187,7 @@ for mi = 1:num_test
 
         % [x, y] = getCoordinatesCore(field_lens, lens.focusing_point);
         % focusing_point_amp = field_lens.sound_pressure(x, y);
-        amps(zi) = abs(sum(lens.weights_out));
+        amps(plot_order(zi)) = abs(sum(lens.weights_out));
 
         [steerVec, theta] = getSteeringMatrix(lens);
         beampattern = lens.weights_out.' * steerVec;
@@ -160,9 +195,9 @@ for mi = 1:num_test
         % beampattern = circshift(beampattern, round(-length(beampattern) / 2));
         figure(3)
         % clf
-        plot(theta, (abs(beampattern)), 'linewidth', 2, 'color', cmap(zi, :));
+        plot(theta, (abs(beampattern)), 'linewidth', 2, 'color', cmap(plot_order(zi), :));
         id = theta == steering_angle;
-        amps_record(zi) = abs(beampattern(id));
+        amps_record(plot_order(zi)) = abs(beampattern(id));
         hold on
         xlabel('Angle')
         ylabel('Magnitude')
@@ -170,7 +205,7 @@ for mi = 1:num_test
 
         fprintf("**********************\n")
         fprintf("**********************\n")
-        fprintf("Amplitude = %.2f in frequency = %i\n", amps(zi), fc)
+        fprintf("Amplitude = %.2f in frequency = %i\n", amps(plot_order(zi)), fc)
         fprintf("**********************\n")
         fprintf("**********************\n")
 
