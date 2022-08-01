@@ -33,7 +33,8 @@ sns.set_style("whitegrid")
     
 
 
-def training_loop(model, optimizer, n=2000, max_loss=999, COMMENTS = " "):
+def training_loop(model, optimizer,\
+    scheduler = None, n=2000, max_loss=999, COMMENTS = " "):
     "Training loop for torch model."
     losses = []
     
@@ -42,6 +43,9 @@ def training_loop(model, optimizer, n=2000, max_loss=999, COMMENTS = " "):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
+        if(scheduler != None):
+            scheduler.step()
+            # print(scheduler.get_last_lr())
         losses.append(loss.cpu().detach().numpy())
         if(loss < max_loss):
             torch.save(model.state_dict(), 'best_model.pkl')
@@ -57,8 +61,9 @@ m = Model(device).to(device)
 
 # Instantiate optimizer
 
-# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.1)
 optimizer = torch.optim.Adam(m.parameters(), lr=0.005)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, \
+    step_size=4000, gamma=0.2)
 
 n = 2000
 iters = 21
@@ -83,7 +88,8 @@ for ti in range(repeat_num):
     print("test ", ti)
     # m.reset(device)
     max_loss = 9999
-    losses, max_loss = training_loop(m, optimizer, 4000, max_loss)
+    losses, max_loss = training_loop(m,\
+        optimizer, scheduler, 8000, max_loss)
     m.load_state_dict(torch.load('best_model.pkl'))
 
 
@@ -101,6 +107,7 @@ for ti in range(repeat_num):
     
 plt.figure(figsize=(14, 7))
 plt.plot(losses)
+plt.show()
 # print(m.weights)
 
 # %%
