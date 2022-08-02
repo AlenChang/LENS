@@ -21,6 +21,9 @@ close all
 
 amps_record = zeros(length(sweep_angle), 1);
 
+f1 = @(x) 0.3 / 90^2 * x.^2 +0.7;
+add_weights = f1(sweep_angle);
+
 for zi = 1:1
     %% define speakers
     num_speakers = 9;
@@ -80,7 +83,7 @@ for zi = 1:1
 
 end
 
-save parameters.mat A G
+save parameters.mat A G add_weights
 
 % locs = zeros(length(field_lens.x), 2);
 % locs(:, 1) = field_lens.x;

@@ -31,6 +31,8 @@ class Model(nn.Module):
         self.theta = nn.Parameter(torch.randn(self.lens_num, 1, dtype=torch.cfloat))
         self.A = torch.from_numpy(mat['A']).to(torch.cfloat).to(device)
         self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)
+        
+        self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.cfloat).to(device)
         # self.G = torch.rand(self.array_num, self.lens_num, dtype=torch.cfloat)
     # def reset(self, device):
     #     self.w = nn.Parameter(torch.rand(self.code_num, self.array_num, dtype=torch.cfloat)).to(device)
@@ -60,11 +62,15 @@ class Model(nn.Module):
 
         K = 0.1
         diag_out = 0
-        for ti in range(-2,3):
-            diag_out += torch.sum(torch.diag(sout, ti).abs())
-        out = -(1+K)*diag_out + K*torch.sum(sout.abs()) \
-            + 50 * torch.var(torch.diag(sout).abs())
-        # out = -torch.sum(torch.diag(sout).abs()) + K*torch.var(torch.diag(sout).abs()) + 0.1*torch.sum(sout.abs())
+        diag_sum = 0
+        ns = 1
+        for ti in range(-ns,ns+1):
+            diag_out += 0.8 ** np.abs(ti) \
+                * torch.sum(torch.diag(sout, ti).abs()**2)
+            diag_sum += torch.sum(torch.diag(sout, ti).abs()**2)
+        out = -(1+K)*diag_out \
+            + K*(torch.sum(sout.abs()**2) - diag_sum)\
+            + 1000 * torch.var(torch.diag(sout).abs() * self.add_weights)
         return out
     
     
