@@ -36,8 +36,8 @@ class Model(nn.Module):
     #     self.w = nn.Parameter(torch.rand(self.code_num, self.array_num, dtype=torch.cfloat)).to(device)
     #     self.theta = nn.Parameter(torch.randn(self.lens_num, 1, dtype=torch.cfloat)).to(device)
     def get_w(self):
-        return self.w / torch.abs(self.w)
-        # return self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
+        # return self.w / torch.abs(self.w)
+        return self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
         # return self.w  / torch.sum(self.w.abs(), 1).unsqueeze(-1)
     def get_theta(self):
         return self.theta / torch.abs(self.theta)
@@ -54,13 +54,10 @@ class Model(nn.Module):
         sout = torch.matmul(lens_out, torch.transpose(self.A, 0, 1))
 
         # sout = torch.matmul(sin, theta)
-        entropy = 0.0
-        for input_tensor in sout:
-            entropy += calc_entropy(input_tensor.abs())
+        # entropy = 0.0
+        # for input_tensor in sout:
+        #     entropy += calc_entropy(input_tensor.abs())
 
-        # weight_entropy = calc_entropy(w.abs().squeeze())
-        # out = -torch.sum(torch.diag(sout).abs())
-        # print("diag: ", torch.diag(sout).abs())
         K = 0.1
         diag_out = 0
         for ti in range(-2,3):

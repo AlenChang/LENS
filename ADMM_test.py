@@ -39,9 +39,10 @@ def training_loop(model, optimizer, n=2000, max_loss=999, COMMENTS = " "):
     
     for i in range(n):
         loss = model()
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        optimizer.zero_grad()
+
         losses.append(loss.cpu().detach().numpy())
         if(loss < max_loss):
             torch.save(model.state_dict(), 'best_model.pkl')
