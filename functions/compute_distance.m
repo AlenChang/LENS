@@ -1,9 +1,10 @@
 function d = compute_distance(x, y)
-assert(numel(x) == 2 && numel(y) == 2)
+assert(numel(x) == 3 && numel(y) == 3)
 x = manipulate_dimention(x);
 y = manipulate_dimention(y);
 d = x - y;
-d = sqrt(d(1)^2 + d(2)^2);
+% keyboard
+d = norm(d);
 end
 
 function A = manipulate_dimention(A)

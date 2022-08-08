@@ -13,7 +13,6 @@ cmap = cmap(index, :);
 rng(1)
 num_test = 1;
 amps_total = zeros(num_test, 1);
-A = zeros(length(sweep_angle), 16);
 SVecs = zeros(181, 16);
 
 lens_delay = exp(1j * rand(16, 1) * 2 * pi);
@@ -29,29 +28,44 @@ for zi = 1:1
     num_speakers = 9;
     speaker_center = [0, 0];
     speaker_spacing = 0.5;
+    speaker_dimension = '1D';
     fc = freq;
-    speaker = build_speakers(num_speakers, speaker_center, speaker_spacing, fc);
-
+    speaker = build_speakers(num_speakers, speaker_center, speaker_spacing, fc, speaker_dimension);
+    % keyboard
     %% define lens
 
     field_len_x = 20;
     field_len_y = 20;
     gridsize2 = speaker.lambda / 20;
     field_lens = build_sound_field(field_len_x, field_len_y, gridsize2);
-
+    % keyboard
     field_speaker_x = 10;
     field_speaker_y = 20;
     gridsize = speaker.lambda / 20;
     field_speaker = build_sound_field(field_speaker_x, field_speaker_y, gridsize);
+    % keyboard
 
     num_cells = 16;
     lens_center = [-field_len_x / 2, 0];
     steering_angle = 0; % (-90, 90)
-    focusing_point = [-field_len_x / 2 + 10, 10 * tan(steering_angle / 180 * pi)];
+    focusing_point = [-field_len_x / 2 + 10, 10 * tan(steering_angle / 180 * pi), 0];
     lens_spacing = 0.5;
-    lens = build_speakers(num_cells, lens_center, lens_spacing, fc);
+    lens_dimension = '1D';
+    lens = build_speakers(num_cells, lens_center, lens_spacing, fc, lens_dimension);
     lens = get_lens_delay(lens, speaker, field_speaker);
-
+    lens_index = get_lens_index(lens.delay);
+    lens_index = reshape(lens_index, lens.num, []);
+    figure(1)
+    clf
+    imagesc(abs(lens_index))
+    colorbar
+    % legend
+    pbaspect([1,1,1])
+    xlabel('y')
+    ylabel('z')
+    saveas(gcf, 'figs/construct_lens_index.png')
+    disp(lens_index)
+    % keyboard
     focusing_type = 'direction'; % {'direction', 'point'}
     lens = backstepping(lens, focusing_point, focusing_type);
     % lens.weights = conj(lens.weights);
@@ -62,7 +76,7 @@ for zi = 1:1
     target.locs = lens.locs;
     target.locs(:, 1) = field_speaker.x(end);
     target.sound_pressure = lens.weights_out;
-    target.num = 16;
+    target.numel = lens.numel;
 
     %% define desired sound pressure at samples
     % target = desired_pressure_at_samples(target, speaker);
@@ -75,15 +89,19 @@ for zi = 1:1
     % speaker.weights = exp(1j*pi/2);
     amps(zi) = abs(sum(lens.weights_out));
     [steerVec, theta] = getSteeringMatrix(lens);
+    A = zeros(length(sweep_angle), lens.num);
     for ni = 1 : length(sweep_angle)
         target_angle = sweep_angle(ni);
         A(ni, :) = steerVec(:, target_angle+91);
         % SVecs()
     end
+    if(strcmp(lens_dimension, '2D'))
+        steerVec = repmat(steerVec, 16, 1);
+    end
 
 end
 
-save parameters.mat A G add_weights
+save parameters.mat A G add_weights steerVec sweep_angle
 
 % locs = zeros(length(field_lens.x), 2);
 % locs(:, 1) = field_lens.x;

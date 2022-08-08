@@ -5,14 +5,15 @@ lens.focusing_point = focusing_point;
 
 if(strcmp(lens.focusing_type, 'point'))
     
-    for ti = 1 : lens.num
+    for ti = 1 : lens.numel
         d = compute_distance(lens.locs(ti, :), lens.focusing_point);
         lens.weights_out(ti) = conj(exp(-1j*2*pi*lens.fc/lens.c*d));
     end
 elseif(strcmp(lens.focusing_type, 'direction'))
+    % keyboard
     steervec = focusing_point - lens.center;
     theta = atan(steervec(2) / steervec(1));
-    for ti = 1 :lens.num
+    for ti = 1 : lens.numel
         if(ti == 1)
             lens.weights_out(ti) = 1;
         else

@@ -3,7 +3,7 @@ fprintf("================\n")
 target.locs = [];
 target.coordinates = target_coordinates;
 len_x = size(field.locs, 1);
-
+% keyboard
 if(strcmp(target.coordinates , "square"))
     locs = field.locs(ceil(len_x / 2) : len_x, 1, :);
     target = append_locs(target, locs);
@@ -18,6 +18,7 @@ if(strcmp(target.coordinates , "square"))
     locs = field.locs(end:-1:ceil(len_x / 2), end, :);
     target = append_locs(target, locs);
 elseif(strcmp(target.coordinates , "raw"))
+    % keyboard
     locs = field.locs(ceil(len_x / 2) : len_x, 1, :);
     target = append_locs(target, locs);
 
@@ -26,6 +27,7 @@ elseif(strcmp(target.coordinates , "raw"))
     x = field.locs(end, 1);
     locs = lens.locs;
     locs(:, 1) = x;
+    % keyboard
     target = append_locs(target, locs);
 
     target.y_end = target.y_start + size(locs, 1) - 1;

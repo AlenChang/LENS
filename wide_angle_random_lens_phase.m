@@ -10,7 +10,7 @@ cmap = jet;
 index = round(linspace(1, size(cmap, 1), length(sweep_angle)));
 cmap = cmap(index, :);
 
-parameter_source = "optimal";
+parameter_source = "raw";
 % parameter_source = "raw";
 
 load optimal.mat
@@ -61,10 +61,12 @@ set(gca, 'fontsize', 15)
 title(sprintf("Amps vs Directions, VAR = %.5f", var(amps_diag)))
 % axis([])
 pbaspect([1,1,1])
-pause
+% print('-depsc', 'figs/matlab_overall_fig.png')
+saveas(gcf, 'figs/matlab_overall_fig.png')
+% pause
 
 out_amp = diag(out);
-[~, plot_order] = sort(out_amp);
+[~, plot_order] = sort(out_amp, 'descend');
 
 rng(1)
 num_test = 1;
@@ -200,7 +202,11 @@ for mi = 1:num_test
         xlabel('y')
         ylabel('x')
         pbaspect([field_lens.len_y, field_lens.len_x, 1])
-
+        fig = figure(1);
+        saveas(fig, 'figs/results_visual.png')
+        disp("press any key to continue ...")
+        pause()
+        
         % [x, y] = getCoordinatesCore(field_lens, lens.focusing_point);
         % focusing_point_amp = field_lens.sound_pressure(x, y);
         amps(plot_order(zi)) = abs(sum(lens.weights_out));
@@ -235,6 +241,8 @@ for mi = 1:num_test
 
 end
 
+fig = figure(3);
+saveas(fig, 'figs/matlab_beam_patterms.png')
 %%
 figure(4)
 

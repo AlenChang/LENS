@@ -1,9 +1,9 @@
 function lens = get_lens_delay(lens, speaker, field)
     lens_locs = lens.locs;
     lens_locs(:, 1) = squeeze(field.locs(end, 1, 1));
-    lens.delay = zeros(lens.num, 1);
+    lens.delay = zeros(lens.numel, 1);
 
-    for ti = 1:lens.num
+    for ti = 1:lens.numel
         d = compute_distance(speaker.center, lens_locs(ti, :));
         delay = get_phase_delay(lens, d);
         delay1 = exp(1j * 2 * pi * lens.design_fc * d / lens.c);
@@ -11,8 +11,9 @@ function lens = get_lens_delay(lens, speaker, field)
         % if(p1 < 0)
         %     p1 = p1 + 2 * pi;
         % end
-        fprintf("delay = %.2f, delay1 = %.2f\n", angle(delay), angle(delay1))
-        lens.delay(ti) = delay;
+        % fprintf("delay = %.2f, delay1 = %.2f\n", angle(delay), angle(delay1))
+        lens.delay(ti) = delay1;
+        % keyboard
     end
 
     lens.back_step = lens.delay;

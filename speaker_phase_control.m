@@ -29,7 +29,7 @@ field = compute_field_pressure(field, speaker);
 
 %% STEP6 Visulization
 figure_init('GENERATED SOUND FIELD')
-imagesc(field.x, field.y, real(field.sound_pressure))
+imagesc(field.x, field.y, db(abs(field.sound_pressure)))
 hold on
 plot(target.locs(:, 2), target.locs(:, 1), 'ro')
 plot(speaker.locs(:, 2), speaker.locs(:, 1), 'r*')
@@ -37,6 +37,7 @@ set(gca, 'XTick', [], 'YTick', [])
 xlabel('y')
 ylabel('x')
 pbaspect([1, 1, 1])
+saveas(gcf, 'figs/speaker_generated_sound_field.png')
 
 
 
