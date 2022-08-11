@@ -281,14 +281,21 @@ class Model_Basic(nn.Module):
         
         self.w = nn.Parameter(torch.rand(self.steerVec.shape[1], self.array_num, dtype=torch.cfloat))
         
-        if(self.lens_num == 16):
+        self.lens_type = mat['lens_dimension']
+        if(self.lens_type == "1D"):
             self.theta = nn.Parameter(torch.rand(int(self.lens_num / 2), 1, dtype=torch.cfloat))
-            self.lens_type = "1D"
+            
             self.gain = 1 / self.lens_num
-        elif(self.lens_num == 256):
+        elif(self.lens_type == "2D"):
             self.theta = nn.Parameter(torch.rand(int(self.lens_num / 4), 1, dtype=torch.cfloat))
-            self.lens_type = "2D"
+            self.lens_width = int(np.sqrt(self.lens_num))
             self.gain = 1 / self.lens_num
+        else:
+            print("Wrong lens dimension.")
+            return
+            
+            
+        
             
         # with torch.no_grad():
         #     for ti in range(self.sweep_angle.shape[0]):
@@ -306,17 +313,19 @@ class Model_Basic(nn.Module):
         if(self.lens_type == "1D"):
             return self.theta / torch.abs(self.theta)
         elif(self.lens_type == "2D"):
-            theta = torch.zeros(16, 16, dtype=torch.cfloat).to(self.device)
-            aa = (self.theta / self.theta.abs()).view(8, -1)
+            theta = torch.zeros(self.lens_width, self.lens_width, dtype=torch.cfloat).to(self.device)
+            
+            sub_mat_width = int(self.lens_width / 2)
+            aa = (self.theta / self.theta.abs()).view(sub_mat_width, -1)
             # test_index = torch.from_numpy(np.arange(64)).view(8,8)
             # target_index = torch.zeros(16, 16)
             
-            for mi in range(8):
-                theta[mi, 0:8] = aa[mi]
+            for mi in range(sub_mat_width):
+                theta[mi, 0:sub_mat_width] = aa[mi]
                 # target_index[mi, 0:8] = test_index[mi]
-                theta[mi, 8:16] = torch.flipud(aa[mi])
+                theta[mi, sub_mat_width:self.lens_width] = torch.flipud(aa[mi])
                 # target_index[mi, 8:16] = torch.flipud(test_index[mi])
-                theta[15-mi] = theta[mi]
+                theta[self.lens_width-1-mi] = theta[mi]
                 # target_index[15-mi] = target_index[mi]
                 
             return (theta / torch.abs(theta)).view(-1)

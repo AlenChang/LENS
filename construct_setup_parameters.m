@@ -45,7 +45,7 @@ for zi = 1:1
     field_speaker = build_sound_field(field_speaker_x, field_speaker_y, gridsize);
     % keyboard
 
-    num_cells = 16;
+    num_cells = 20;
     lens_center = [-field_len_x / 2, 0];
     steering_angle = 0; % (-90, 90)
     focusing_point = [-field_len_x / 2 + 10, 10 * tan(steering_angle / 180 * pi), 0];
@@ -96,12 +96,13 @@ for zi = 1:1
         % SVecs()
     end
     if(strcmp(lens_dimension, '2D'))
-        steerVec = repmat(steerVec, 16, 1);
+        steerVec = repmat(steerVec, num_cells, 1);
     end
 
 end
 
-save parameters.mat A G add_weights steerVec sweep_angle
+save parameters.mat A G ...
+ add_weights steerVec sweep_angle lens_dimension
 
 % locs = zeros(length(field_lens.x), 2);
 % locs(:, 1) = field_lens.x;
