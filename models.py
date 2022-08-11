@@ -282,11 +282,11 @@ class Model_Basic(nn.Module):
         self.w = nn.Parameter(torch.rand(self.steerVec.shape[1], self.array_num, dtype=torch.cfloat))
         
         if(self.lens_num == 16):
-            self.theta = nn.Parameter(torch.randn(int(self.lens_num / 2), 1, dtype=torch.cfloat))
+            self.theta = nn.Parameter(torch.rand(int(self.lens_num / 2), 1, dtype=torch.cfloat))
             self.lens_type = "1D"
             self.gain = 1 / self.lens_num
         elif(self.lens_num == 256):
-            self.theta = nn.Parameter(torch.randn(int(self.lens_num / 4), 1, dtype=torch.cfloat))
+            self.theta = nn.Parameter(torch.rand(int(self.lens_num / 4), 1, dtype=torch.cfloat))
             self.lens_type = "2D"
             self.gain = 1 / self.lens_num
             
@@ -299,8 +299,8 @@ class Model_Basic(nn.Module):
         self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.float).to(device)
 
     def get_w(self):
-        return self.w / torch.abs(self.w)
-        # return self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
+        # return self.w / torch.abs(self.w)
+        return self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
         # return self.w  / torch.sum(self.w.abs(), 1).unsqueeze(-1)
     def get_theta(self):
         if(self.lens_type == "1D"):
@@ -323,7 +323,7 @@ class Model_Basic(nn.Module):
     
     def get_weights(self):
         x = np.arange(-90, 91)
-        return -0.2 / 90 ** 2 * torch.from_numpy(x)**2 + 1
+        return -0.6 / 90 ** 2 * torch.from_numpy(x)**2 + 1
         
         
 
@@ -339,21 +339,29 @@ class Model_Basic(nn.Module):
 
         lens_out = torch.matmul(lens_in, torch.diag(theta.squeeze()))
         sout = torch.matmul(lens_out, self.steerVec)
+        
+        sout = sout.abs() ** 2
+        sout = sout / self.array_num / self.lens_num
+        
         if(self.lens_type == "1D"):
-            K = 0.01
-            var_gain = 200
+            K = 0.02
+            var_gain = 100
         elif(self.lens_type == "2D"):
-            K = 0.01
-            var_gain = 200
+            K = 0.02
+            var_gain = 80
         diag_out = 0
         diag_sum = 0
         weights = self.get_weights().to(self.device)
         
-        diag_out += torch.sum(torch.diag(sout, 0).abs()**2 * weights)
-        diag_sum += torch.sum(torch.diag(sout, 0).abs()**2)
+        diag_out += torch.sum(torch.diag(sout, 0) * weights)
+        diag_sum += torch.sum(torch.diag(sout, 0))
         
-        out = self.gain*(-(1+K)*diag_out \
-            + K*(torch.sum(sout.abs()**2) - diag_sum)) + var_gain * torch.var(torch.diag(sout).abs() / weights)
+        var_loss = var_gain * torch.std(torch.diag(sout) / weights)
+        amp_loss = -diag_out \
+            + K*(torch.sum(sout) - diag_sum)
+        out = amp_loss + var_loss
+        
+        print("Amp loss: ", amp_loss.detach().numpy(), " Var loss: ", var_loss.detach().numpy())
         
         # out = -(1+K)*diag_out \
         #     + K*(torch.sum(sout.abs()**2) - diag_sum)\
@@ -406,8 +414,8 @@ class Model_Tune(nn.Module):
         # self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.float).to(device)
 
     def get_w(self):
-        return self.w / torch.abs(self.w)
-        # return self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
+        # return self.w / torch.abs(self.w)
+        return self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
         # return self.w  / torch.sum(self.w.abs(), 1).unsqueeze(-1)
     def get_theta(self):
         if(self.lens_type == "1D"):
@@ -441,5 +449,5 @@ class Model_Tune(nn.Module):
         lens_in = torch.matmul(w, self.G)
         lens_out = torch.matmul(lens_in, torch.diag(theta.squeeze()))
         sout = torch.matmul(lens_out, self.steerVec)    
-        return -torch.sum(torch.diag(sout, 0).abs()**2)
+        return -torch.sum(torch.diag(sout, 0).abs()**2) / self.lens_num
     

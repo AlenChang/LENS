@@ -25,9 +25,9 @@ add_weights = f1(sweep_angle);
 
 for zi = 1:1
     %% define speakers
-    num_speakers = 9;
+    num_speakers = 6;
     speaker_center = [0, 0];
-    speaker_spacing = 0.5;
+    speaker_spacing = 0.758;
     speaker_dimension = '1D';
     fc = freq;
     speaker = build_speakers(num_speakers, speaker_center, speaker_spacing, fc, speaker_dimension);
@@ -39,7 +39,7 @@ for zi = 1:1
     gridsize2 = speaker.lambda / 20;
     field_lens = build_sound_field(field_len_x, field_len_y, gridsize2);
     % keyboard
-    field_speaker_x = 10;
+    field_speaker_x = 6;
     field_speaker_y = 20;
     gridsize = speaker.lambda / 20;
     field_speaker = build_sound_field(field_speaker_x, field_speaker_y, gridsize);
@@ -50,7 +50,7 @@ for zi = 1:1
     steering_angle = 0; % (-90, 90)
     focusing_point = [-field_len_x / 2 + 10, 10 * tan(steering_angle / 180 * pi), 0];
     lens_spacing = 0.5;
-    lens_dimension = '1D';
+    lens_dimension = '2D';
     lens = build_speakers(num_cells, lens_center, lens_spacing, fc, lens_dimension);
     lens = get_lens_delay(lens, speaker, field_speaker);
     lens_index = get_lens_index(lens.delay);

@@ -40,7 +40,8 @@ imagesc(abs(beampattern))
 %     title(ti)
 %     pbaspect([1,1,1])
 % end
-
+set(gca, 'fontsize', 20)
+pbaspect([1,1,1])
 saveas(gcf, 'figs/show_results_2D.png')
 
 % keyboard

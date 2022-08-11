@@ -1,5 +1,5 @@
 function d = compute_distance(x, y)
-assert(numel(x) == 3 && numel(y) == 3)
+assert(numel(x) == numel(y) && numel(y) >= 2)
 x = manipulate_dimention(x);
 y = manipulate_dimention(y);
 d = x - y;

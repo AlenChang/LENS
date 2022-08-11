@@ -23,7 +23,7 @@ def setup_seed(seed):
      random.seed(seed)
      torch.backends.cudnn.deterministic = True
 # 设置随机数种子
-# setup_seed(20)
+setup_seed(20)
 
 sns.set_style("whitegrid")
 
@@ -126,16 +126,16 @@ model = Model_Basic(device).to(device)
 
 # Instantiate optimizer
 
-optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, \
-    step_size=2000, gamma=0.2)
+    step_size=4000, gamma=0.2)
 
 max_loss = 9999
 
 # model.w.requires_grad = True
 # model.theta.requires_grad = False
 losses, max_loss = training_loop(model,\
-        optimizer, scheduler, 8001, max_loss)
+        optimizer, scheduler, 20001, max_loss)
 
 
 # print estimated weigths
@@ -146,33 +146,33 @@ theta = model.get_theta().cpu().detach().numpy()
 mdic = {"speaker_w": w, "len_theta":theta}
 scipy.io.savemat("optimal.mat", mdic)
 
-# %% Tuning
-max_loss = 9999
-model_tune = Model_Tune(device).to(device)
-optimizer = torch.optim.Adam(model_tune.parameters(), lr=0.0001)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, \
-    step_size=5000, gamma=0.1)
-model_tune.w.requires_grad = True
-model_tune.theta.requires_grad = False
-losses, max_loss = training_loop(model_tune,\
-        optimizer, scheduler, 8001, max_loss)
-# for ni in range(3):
-#     model.train()
-#     if(ni % 2 ==0):
-#         model.w.requires_grad = True
-#         model.theta.requires_grad = False
-#         COMMENTS = "w"
-#     else:
-#         model.w.requires_grad = False
-#         model.theta.requires_grad = True
-#         COMMENTS = "theta"
-#     losses, max_loss = training_loop(model,\
-#             optimizer, scheduler, 8001, max_loss)
-#     model.load_state_dict(torch.load('best_model.pkl'))
-model_tune.load_state_dict(torch.load('best_model.pkl'))
-w = model_tune.get_w().cpu().detach().numpy()
-theta = model_tune.get_theta().cpu().detach().numpy()
+# # %% Tuning
+# max_loss = 9999
+# model_tune = Model_Tune(device).to(device)
+# optimizer = torch.optim.Adam(model_tune.parameters(), lr=0.0001)
+# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, \
+#     step_size=5000, gamma=0.1)
+# model_tune.w.requires_grad = True
+# model_tune.theta.requires_grad = False
+# losses, max_loss = training_loop(model_tune,\
+#         optimizer, scheduler, 8001, max_loss)
+# # for ni in range(3):
+# #     model.train()
+# #     if(ni % 2 ==0):
+# #         model.w.requires_grad = True
+# #         model.theta.requires_grad = False
+# #         COMMENTS = "w"
+# #     else:
+# #         model.w.requires_grad = False
+# #         model.theta.requires_grad = True
+# #         COMMENTS = "theta"
+# #     losses, max_loss = training_loop(model,\
+# #             optimizer, scheduler, 8001, max_loss)
+# #     model.load_state_dict(torch.load('best_model.pkl'))
+# model_tune.load_state_dict(torch.load('best_model.pkl'))
+# w = model_tune.get_w().cpu().detach().numpy()
+# theta = model_tune.get_theta().cpu().detach().numpy()
 
-# print("Weights: ", w)
-mdic = {"speaker_w": w, "len_theta":theta}
-scipy.io.savemat("optimal.mat", mdic)
+# # print("Weights: ", w)
+# mdic = {"speaker_w": w, "len_theta":theta}
+# scipy.io.savemat("optimal.mat", mdic)
