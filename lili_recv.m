@@ -1,4 +1,4 @@
-function [decodedData,reshaped_pkt] = yin_recv(seed)
+function [decodedData,reshaped_pkt] = lili_recv(seed)
 
 %--------------------------------------------------------------------------
 % 0) Initialize some global constants
@@ -9,13 +9,13 @@ rng(seed);
 
 % use 96KHz as the sampling frequency for the WAV file
 % later may want to switch to 44.1KHz
-Fs = 96000;
+Fs = 48e3;
 
 % consider [32KHz,44KHz] instead of [20KHz, 48KHz] to leave enough guard band
 % on both sides.  BW = f_max - f_min = 12000 = Fs/8.  For simplicity, we 
 % only consider Fs/2^k, later should be able to extend to more general case
-f_min = 32000;   
-f_max = 44000;
+f_min = 17000;   
+f_max = 20000;
 
 % use 128 samples so that eacy OFDM symbol is not too narrow
 Nfft = 128;
@@ -68,11 +68,12 @@ modPreamble = step(comm.BPSKModulator,preamble);
 modPreamble_conj_normalized = conj(modPreamble)./norm(modPreamble,'fro');;
 
 % process the wav file
-filename=sprintf('32KHz-44KHz/recv/rcv_packet%d.wav',seed);
-[wav_packet_orig,Fs,nbits] = wavread(filename);
+filename=sprintf('rcv_packet%d.wav',seed);
+[wav_packet_orig,Fs] = audioread(filename);
+% wav_packet_orig = awgn(wav_packet_orig, 4);
 filename=sprintf('sent_packet%d.wav',seed);
-[sent_pkt_orig,Fs,nbits] = wavread(filename);
-
+[sent_pkt_orig,Fs] = audioread(filename);
+% keyboard
 % convert from [0, 1] to [-1, 1]
 wav_packet_orig = wav_packet_orig*Nfft_useful/Nfft;
 sent_pkt_orig = sent_pkt_orig*Nfft_useful/Nfft;

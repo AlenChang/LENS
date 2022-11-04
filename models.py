@@ -1,285 +1,55 @@
 from email import policy
+from xml.etree.ElementPath import find
 from torch import nn
 import numpy as np
 import torch
 import scipy.io
 import random
+from scipy.signal import find_peaks
 # from torch.functional import F
 
-
-def calc_entropy(input_tensor):
-    lsm = nn.LogSoftmax()
-    log_probs = lsm(input_tensor)
-    probs = torch.exp(log_probs)
-    p_log_p = log_probs * probs
-    entropy = -p_log_p.mean()
-    return entropy
-
-class Model(nn.Module):
-    """Custom Pytorch model for gradient optimization.
-    """
-    def __init__(self, device):
-        super().__init__()
-        # initialize weights with random numbers
-        mat = scipy.io.loadmat('parameters.mat')
-
-        self.array_num = mat['G'].shape[0]
-        self.code_num = mat['A'].shape[0]
-        self.lens_num = mat['A'].shape[1]
-
-        self.w = nn.Parameter(torch.rand(self.code_num, self.array_num, dtype=torch.cfloat))
-        self.theta = nn.Parameter(torch.randn(int(self.lens_num / 2), 1, dtype=torch.cfloat))
-        self.A = torch.from_numpy(mat['A']).to(torch.cfloat).to(device)
-        self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)
-        
-        self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.float).to(device)
-        
-        # self.gain = 0.8
-        # self.ns = nn.Parameter(torch.randint(1).abs())
-
-    def get_w(self):
-        # return self.w / torch.abs(self.w)
-        return self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
-        # return self.w  / torch.sum(self.w.abs(), 1).unsqueeze(-1)
-    def get_theta(self):
-        return self.theta / torch.abs(self.theta)
-
-
-    def forward(self):
-        w = self.get_w()
-        theta = self.get_theta()
-        lens_in = torch.matmul(w, self.G)
-
-        theta = torch.vstack((theta, torch.flipud(theta)))
-        lens_out = torch.matmul(lens_in, torch.diag(theta.squeeze()))
-        sout = torch.matmul(lens_out, torch.transpose(self.A, 0, 1))
-
-        K = 0
-        diag_out = 0
-        diag_sum = 0
-        
-        ns = 0
-        gain = 0.8
-        for ti in range(-ns,ns+1):
-            if(ti == 0):
-                weights = -self.add_weights + self.add_weights[0][0] + 1
-                weights = weights ** 2
-                weights = weights / torch.max(weights)
-                diag_out += gain ** np.abs(ti) * torch.sum(torch.diag(sout, ti).abs()**2 * weights)
-            else:
-                diag_out += gain ** np.abs(ti) * torch.sum(torch.diag(sout, ti).abs()**2)
-            diag_sum += torch.sum(torch.diag(sout, ti).abs()**2)
-        out = -(1+K)*diag_out \
-            + K*(torch.sum(sout.abs()**2) - diag_sum)\
-            + 0 * torch.var(torch.diag(sout).abs() * self.add_weights)
-        return out
-  
-class Model2(nn.Module):
-    """Custom Pytorch model for gradient optimization.
-    """
-    def __init__(self, device):
-        super().__init__()
-        # initialize weights with random numbers
-        mat = scipy.io.loadmat('parameters.mat')
-
-        self.array_num = mat['G'].shape[0]
-        self.code_num = mat['A'].shape[0]
-        self.lens_num = mat['A'].shape[1]
-
-        self.A = torch.from_numpy(mat['A']).to(torch.cfloat).to(device)
-        self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)
-
-        self.w = torch.rand(self.code_num, self.array_num, dtype=torch.cfloat).to(device)
-        self.theta = torch.randn(self.lens_num, 1, dtype=torch.cfloat).to(device)
-    
-
-        self.hidden = 128
-        self.net_beampattern = nn.Sequential(
-            nn.Linear(self.code_num**2, self.hidden),
-            nn.ReLU()
-        )
-        
-        self.net_w = nn.Sequential(
-            nn.Linear(self.code_num*self.array_num*2, self.hidden),
-            nn.ReLU()
-        )
-        
-        self.net_theta = nn.Sequential(
-            nn.Linear(self.lens_num * 2, 16),
-            nn.ReLU()
-        )
-        
-        self.policy = nn.Sequential(
-            nn.Linear(self.hidden+self.hidden+16, self.hidden),
-            nn.ReLU(),
-            nn.Linear(self.hidden, self.hidden),
-            nn.ReLU(),
-            nn.Linear(self.hidden, self.hidden),
-            nn.ReLU()
-        )
-        self.policy_w = nn.Sequential(
-            nn.Linear(self.hidden, self.hidden),
-            nn.ReLU(),
-            nn.Linear(self.hidden, self.code_num*self.array_num*2)
-        )
-        
-        self.policy_theta = nn.Sequential(
-            # nn.Linear(self.hidden, self.hidden),
-            # nn.ReLU(),
-            nn.Linear(self.hidden, self.lens_num*2)
-        )
-    def reset(self, device):
-        self.w = torch.rand(self.code_num, self.array_num, dtype=torch.cfloat).to(device)
-        self.theta = torch.randn(self.lens_num, 1, dtype=torch.cfloat).to(device)
-
-    def get_w(self, w=None):
-        if(w==None):
-            w = self.w
-        return w / torch.abs(w)
-        # return w / torch.max(w.abs(), dim=1, keepdim=True)[0]
-        # return w  / torch.sum(w.abs(), 1).unsqueeze(-1)
-    def get_theta(self, theta=None):
-        if(theta==None):
-            theta = self.theta
-        return self.theta / torch.abs(self.theta)
-    
-    def compute_out_mat(self, w, theta):
-        # w = self.get_w()
-        # theta = self.get_theta()
-        lens_in = torch.matmul(w, self.G)
-        lens_out = torch.matmul(lens_in, torch.diag(theta.squeeze()))
-        sout = torch.matmul(lens_out, torch.transpose(self.A, 0, 1))
-        return sout
-    def compute_award(self, sout, K):
-        return -(1+K)*torch.sum(torch.diag(sout).abs()) + K*torch.sum(sout.abs())
-    def get_feature_w(self):
-        w = self.get_w().view(-1)
-        feature_w = torch.hstack((torch.real(w), torch.imag(w)))
-        return feature_w
-    def get_feature_theta(self):
-        theta = self.get_theta().view(-1)
-        feature_theta = torch.hstack((torch.real(theta), torch.imag(theta)))
-        return feature_theta
-    def get_feature_bp(self, bp):
-        return bp.abs().view(-1)
-        
-
-
-
-    def forward(self):
-        sout1 = self.compute_out_mat(self.w, self.theta)
-        sout1 = torch.rand(self.code_num, self.code_num).to('cuda')
-        feature_w = nn.functional.normalize(self.net_w(self.get_feature_w()), dim=0)
-        feature_theta = nn.functional.normalize(self.net_theta(self.get_feature_theta()), dim=0)
-        feature_bp = nn.functional.normalize(self.net_beampattern(self.get_feature_bp(sout1)), dim=0)
-        
-        features = torch.hstack((feature_w, feature_theta, feature_bp))
-        
-        features = self.policy(features)
-        dw = self.policy_w(features)
-        dw = dw.view(2, -1)
-        dw = dw[0] + dw[1]*1j
-        
-        w = dw.view(self.w.shape) + self.w
-        dtheta = self.policy_theta(features)
-        dtheta = dtheta.view(2, -1)
-        dtheta = dtheta[0] + dtheta[1]*1j
-        
-        theta = dtheta.view(self.theta.shape) + self.theta
-        w = self.get_w(w)
-        theta = self.get_theta(theta)
-        
-        sout = self.compute_out_mat(w, theta)
-        K = 0.05
-        out = self.compute_award(sout, K)
-        self.w = w.detach()
-        self.theta = theta.detach()
-        return out
-    
-class Model3(nn.Module):
-    """Custom Pytorch model for gradient optimization.
-    """
-    def __init__(self, device):
-        super().__init__()
-        # initialize weights with random numbers
-        mat = scipy.io.loadmat('parameters.mat')
-
-        self.array_num = mat['G'].shape[0]
-        self.code_num = mat['A'].shape[0]
-        self.lens_num = mat['A'].shape[1]
-        self.device = device
-
-        self.w = nn.Parameter(torch.rand(self.code_num, self.array_num, dtype=torch.cfloat))
-        self.theta = nn.Parameter(torch.randn(self.lens_num, 1, dtype=torch.cfloat))
-        self.A = torch.from_numpy(mat['A']).to(torch.cfloat).to(device)
-        self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)
-        self.steerVec = torch.from_numpy(mat['steerVec']).to(torch.cfloat).to(device)
-        self.sweep_angle = torch.from_numpy(mat['sweep_angle']).to(device).view(-1)
-        
-        self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.cfloat).to(device)
-
-    def get_w(self):
-        return self.w / torch.abs(self.w)
-        # return self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
-        # return self.w  / torch.sum(self.w.abs(), 1).unsqueeze(-1)
-    def get_theta(self):
-        return self.theta / torch.abs(self.theta)
-
-
-    def forward(self):
-        w = self.get_w()
-        theta = self.get_theta()
-        lens_in = torch.matmul(w, self.G)
-
-        lens_out = torch.matmul(lens_in, torch.diag(theta.squeeze()))
-        # sout = torch.matmul(lens_out, torch.transpose(self.A, 0, 1))
-        sout = torch.matmul(lens_out, self.steerVec)
-
-        K = 0.1
-        diag_out = 0
-        diag_sum = 0
-        sweep_max = torch.zeros(self.sweep_angle.shape[0]).to(self.device)
-        ns = 0
-        for mi in range(self.sweep_angle.shape[0]):
-            angle = self.sweep_angle[mi]
-            index = angle + 90
-            for ti in range(-ns,ns+1):
-                scale = 0.8 ** np.abs(ti)
-                diag_out += scale * sout[mi, index + ti].abs() ** 2
-                diag_sum += sout[mi, index + ti].abs() ** 2
-                if(ti == 0):
-                    sweep_max[mi] = sout[mi, index]
-        out = -(1+K)*diag_out \
-            + K*(torch.sum(sout.abs()**2) - diag_sum)\
-            + 0 * torch.var(sweep_max * self.add_weights)
-        return out
-     
 class Model_Basic(nn.Module):
     """Custom Pytorch model for gradient optimization.
     """
-    def __init__(self, device):
+    def __init__(self, filename, device):
         super().__init__()
         # initialize weights with random numbers
-        mat = scipy.io.loadmat('parameters.mat')
+        mat = scipy.io.loadmat(filename)
         # params = scipy.io.loadmat('optimal.mat')
 
         self.array_num = mat['G'].shape[0]
         self.code_num = mat['A'].shape[0]
         self.lens_num = mat['steerVec'].shape[0]
         self.device = device
+        
+        
+        self.use_lagrange = False
+        self.need_var_gain = True
+        
+        self.speaker_locs = torch.from_numpy(mat['speaker']['locs'][0][0]).to(device)
+        self.lens_locs = torch.from_numpy(mat['target']['locs'][0][0]).to(device)
+        self.speaker_locs = self.speaker_locs.unsqueeze(dim=1)
+        self.lens_locs = self.lens_locs.unsqueeze(dim=0)
+        self.G = torch.ones(self.array_num, self.lens_num).to(torch.cfloat)
 
+        # self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)
+        self.fc = torch.from_numpy(mat['speaker']['fc'][0][0][0].astype(np.float32))
+        self.c = torch.from_numpy(mat['speaker']['c'][0][0][0].astype(np.float32))
+        self.lambda1 = self.c / self.fc
+        self.aparture = (self.array_num - 1) * self.lambda1
         
         
-        # self.theta = torch.from_numpy(params['len_theta']).to(torch.cfloat).to(device)
-        # self.theta = nn.Parameter(torch.from_numpy(params['len_theta']).to(torch.cfloat))
         
-        # w_optimal = params['speaker_w']
-        self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)
+        
         self.steerVec = torch.from_numpy(mat['steerVec']).to(torch.cfloat).to(device)
         self.sweep_angle = torch.from_numpy(mat['sweep_angle']).to(device).view(-1)
         # self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.cfloat).to(device)
+        self.locs = nn.Parameter(self.speaker_locs[:,:,1].to(device))
         
-        self.w = nn.Parameter(torch.rand(self.steerVec.shape[1], self.array_num, dtype=torch.cfloat))
+        self.w = nn.Parameter(torch.rand(int((self.steerVec.shape[1]+1) / 2), self.array_num, dtype=torch.cfloat))
+        
+        mask = scipy.io.loadmat('mask.mat')
+        self.mask = torch.from_numpy(mask['mask']).to(device)
         
         self.lens_type = mat['lens_dimension']
         if(self.lens_type == "1D"):
@@ -294,55 +64,342 @@ class Model_Basic(nn.Module):
             print("Wrong lens dimension.")
             return
             
-            
-        
-            
-        # with torch.no_grad():
-        #     for ti in range(self.sweep_angle.shape[0]):
-        #         self.w[self.sweep_angle[ti]+90] = torch.from_numpy(w_optimal[ti]).to(torch.cfloat)
-        
-        # self.A = torch.from_numpy(mat['A']).to(torch.cfloat).to(device)
-        
         self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.float).to(device)
+        
+        
 
     def get_w(self):
         # return self.w / torch.abs(self.w)
-        return self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
+        # return 
+        # w = self.w / torch.abs(self.w)
+        # w = self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
+        
+        w_abs = self.w.abs()
+        w_abs = torch.clamp(w_abs, min= 1)
+        w = self.w / w_abs
+        # w = self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
+        w_half = torch.flipud(torch.fliplr(w))
+        return torch.vstack((w, w_half[1:]))
+
         # return self.w  / torch.sum(self.w.abs(), 1).unsqueeze(-1)
     def get_theta(self):
         if(self.lens_type == "1D"):
-            return self.theta / torch.abs(self.theta)
+            theta = torch.vstack((self.theta, torch.flipud(self.theta)))
+            with torch.no_grad():
+                return theta / torch.abs(theta)
+                # return theta
         elif(self.lens_type == "2D"):
             theta = torch.zeros(self.lens_width, self.lens_width, dtype=torch.cfloat).to(self.device)
             
             sub_mat_width = int(self.lens_width / 2)
-            aa = (self.theta / self.theta.abs()).view(sub_mat_width, -1)
+            
+            if(not self.use_lagrange):
+                theta_squeeze = (self.theta / self.theta.abs()).view(sub_mat_width, -1)
+            else:
+                theta_squeeze = self.theta.view(sub_mat_width, -1)
             # test_index = torch.from_numpy(np.arange(64)).view(8,8)
             # target_index = torch.zeros(16, 16)
             
             for mi in range(sub_mat_width):
-                theta[mi, 0:sub_mat_width] = aa[mi]
+                theta[mi, 0:sub_mat_width] = theta_squeeze[mi]
                 # target_index[mi, 0:8] = test_index[mi]
-                theta[mi, sub_mat_width:self.lens_width] = torch.flipud(aa[mi])
+                theta[mi, sub_mat_width:self.lens_width] = torch.flipud(theta_squeeze[mi])
                 # target_index[mi, 8:16] = torch.flipud(test_index[mi])
                 theta[self.lens_width-1-mi] = theta[mi]
                 # target_index[15-mi] = target_index[mi]
                 
-            return (theta / torch.abs(theta)).view(-1)
+            return theta.view(-1)
     
     def get_weights(self):
-        x = np.arange(-90, 91)
-        return -0.6 / 90 ** 2 * torch.from_numpy(x)**2 + 1
-        
-        
+        max_angle = 60
+        atten = -0.3
+        x = np.arange(-max_angle, max_angle+1)
+        return atten / max_angle ** 2 * torch.from_numpy(x)**2 + 1
 
+    def update_G(self):
+        # self.update_speaker_locs()
+        # print(self.locs)
+        self.speaker_locs[:,:,1] = self.locs
+        d = torch.norm(self.speaker_locs - self.lens_locs, dim=2).to(torch.float32)
+        self.G = torch.exp(-1j*2*torch.pi*self.fc/self.c*d) / (2*torch.pi*d)
+        return
+    
+    # def update_speaker_locs(self):
+    #     spacing = self.normalize_spacing()
+    #     self.speaker_locs[0,:,1] = self.aparture / 2
+    #     self.speaker_locs[1:,:,1] = self.aparture / 2 - spacing
+        
+ 
+    
+    # def normalize_spacing(self):
+    #     spacing = self.spacing / (2*self.spacing[0]+2*self.spacing[1]+self.spacing[2]) * self.aparture
+    #     print(2*spacing[0] + 2*spacing[1] + spacing[2])
+    #     return torch.cumsum(torch.vstack((spacing, torch.fliplr(spacing[0:2]))), dim=0)
 
     def forward(self):
         w = self.get_w()
         theta = self.get_theta()
+        # theta = self.get_theta()
+        self.update_G()
+        lens_in = torch.matmul(w, self.G)
+
+        lens_out = torch.matmul(lens_in, torch.diag(theta.squeeze()))
+        sout = torch.matmul(lens_out, self.steerVec)
+        
+        sout = sout.abs() ** 2
+        sout = sout / self.array_num / self.lens_num
+        
         if(self.lens_type == "1D"):
-            theta = torch.vstack((theta, torch.flipud(theta)))
-           
+            K = 0.01
+            var_gain = 50
+        elif(self.lens_type == "2D"):
+            K = 0.04
+            var_gain = 100
+        diag_out = 0
+        diag_sum = 0
+        weights = self.get_weights().to(self.device)
+        
+        diag_out += torch.sum(torch.diag(sout, 0))
+        
+        if(self.need_var_gain):
+            var_loss = var_gain * torch.std(torch.diag(sout) / weights)
+            
+        
+        use_mini_max = False
+        use_sidelob_cancel = True
+        use_adaptive_minimax = False
+        use_minimal_mean = False
+        use_mini_max_second_peaks = False
+        
+        if(not use_mini_max & (not use_sidelob_cancel) & (not use_adaptive_minimax) & (not use_minimal_mean) & (not use_mini_max_second_peaks)):
+            # second_pks = 0
+            # # print(self.code_num)
+            # for i in range(self.code_num):
+            #     pks = torch.argmax(sout[i])
+            #     if(pks != i):
+            #         second_pks += sout[i][pks]
+            amp_loss = -diag_out
+            
+        if(use_minimal_mean):
+            out = 0
+            for i in range(self.code_num):
+                # pks = torch.sum(sout[i])
+                # tmp = sout[i] / pks
+                out = out + torch.log(sout[i][i] / torch.mean(sout[i])) + torch.log(sout[i][i])
+            amp_loss = -0.02*out
+                
+                
+        if(use_adaptive_minimax):
+            side_lobe = sout * self.mask
+            amp_loss = -diag_out \
+            + 0.05*side_lobe.sum()
+            # print(amp_loss)
+        
+        if(use_sidelob_cancel):
+            ignore_angle = 10
+            for ti in range(-ignore_angle,ignore_angle+1):
+                diag_sum += torch.sum(torch.diag(sout, ti))
+                
+            amp_loss = -diag_out \
+            + 0.07*(torch.sum(sout) - diag_sum)
+        
+        if(use_mini_max):
+            second_pks = 0
+            # print(self.code_num)
+            for i in range(self.code_num):
+                pks, _ = find_peaks(sout[i].detach().numpy())
+                values, index = sout[i][pks].abs().sort()
+                if(index.shape[0]>=1):
+                    if(pks[index[0]] == i):
+                        if(index.shape[0]>1):
+                            second_pks += sout[i][pks[index[1:]]].sum()
+                    else:
+                        second_pks += sout[i][pks[index[0:]]].sum()
+            amp_loss = -1*diag_out \
+                + 0.5*second_pks
+        if(use_mini_max_second_peaks):
+            second_pks = 0
+            # print(self.code_num)
+            for i in range(self.code_num):
+                pks, _ = find_peaks(sout[i].detach().numpy())
+                values, index = sout[i][pks].abs().sort()
+                if(index.shape[0]>=1):
+                    if(pks[index[0]] == i):
+                        if(index.shape[0]>1):
+                            second_pks += sout[i][pks[index[1:]]].sum()
+                    else:
+                        second_pks += sout[i][pks[index[0:]]].sum()
+            amp_loss = -1*diag_out \
+                + 0.2*second_pks
+        # print(self.need_var_gain)
+        if(self.need_var_gain):
+            out = amp_loss + var_loss
+        else:
+            out = amp_loss
+        # out = amp_loss
+        return out
+    
+    
+class Model_W(Model_Basic):
+    """Custom Pytorch model for gradient optimization.
+    """
+    def __init__(self, filename, device):
+        super().__init__(filename, device)
+        self.amp = nn.Parameter(torch.ones_like(self.w))
+    def get_amp(self):
+        amp = self.amp / torch.max(self.amp.abs())
+        amp = amp.abs()
+        amp = torch.clamp(amp, min=0.5)
+        amp_half = torch.flipud(torch.fliplr(amp))
+        return torch.vstack((amp, amp_half[1:]))
+    
+    def get_w(self):
+        w_abs = self.w.abs()
+        w_abs = torch.clamp(w_abs, min= 1)
+        w = self.w / w_abs
+        w_half = torch.flipud(torch.fliplr(w))
+        return torch.vstack((w, w_half[1:])) * self.get_amp()
+    
+    def forward(self):
+        w = self.get_w()
+        # w = w * self.get_amp()
+        theta = self.get_theta()
+        lens_in = torch.matmul(w, self.G)
+        lens_out = torch.matmul(lens_in, torch.diag(theta.squeeze()))
+        sout = torch.matmul(lens_out, self.steerVec)
+        
+        sout = sout.abs() ** 2
+        sout = sout / self.array_num / self.lens_num
+        
+        if(self.lens_type == "1D"):
+            var_gain = 50
+        elif(self.lens_type == "2D"):
+            var_gain = 200
+            
+        diag_out = 0
+        diag_sum = 0
+        weights = self.get_weights().to(self.device)
+        
+        diag_out += torch.sum(torch.diag(sout, 0))
+        
+        var_loss = var_gain * torch.std(torch.diag(sout) / weights)
+        
+        use_sidelob_cancel = True
+        
+        if(use_sidelob_cancel):
+            ignore_angle = 5
+            for ti in range(-ignore_angle,ignore_angle+1):
+                diag_sum += torch.sum(torch.diag(sout, ti))
+                
+            amp_loss = -diag_out + 0.05 * (torch.sum(sout) - diag_sum)
+        
+
+
+        out = amp_loss
+        return out    
+
+
+
+
+class Model_Side_lobe_gain(nn.Module):
+    """Custom Pytorch model for gradient optimization.
+    """
+    def __init__(self, filename, device):
+        super().__init__()
+        # initialize weights with random numbers
+        mat = scipy.io.loadmat(filename)
+        # params = scipy.io.loadmat('optimal.mat')
+
+        self.array_num = mat['G'].shape[0]
+        self.code_num = mat['A'].shape[0]
+        self.lens_num = mat['steerVec'].shape[0]
+        self.device = device
+        
+        self.use_lagrange = False
+        self.side_lobe_gain = 0
+
+        
+        
+        # self.theta = torch.from_numpy(params['len_theta']).to(torch.cfloat).to(device)
+        # self.theta = nn.Parameter(torch.from_numpy(params['len_theta']).to(torch.cfloat))
+        
+        # w_optimal = params['speaker_w']
+        self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)
+        self.steerVec = torch.from_numpy(mat['steerVec']).to(torch.cfloat).to(device)
+        self.sweep_angle = torch.from_numpy(mat['sweep_angle']).to(device).view(-1)
+        # self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.cfloat).to(device)
+        
+        self.w = nn.Parameter(torch.rand(int((self.steerVec.shape[1]+1) / 2), self.array_num, dtype=torch.cfloat))
+        
+        self.lens_type = mat['lens_dimension']
+        if(self.lens_type == "1D"):
+            self.theta = nn.Parameter(torch.rand(int(self.lens_num / 2), 1, dtype=torch.cfloat))
+            
+            self.gain = 1 / self.lens_num
+        elif(self.lens_type == "2D"):
+            self.theta = nn.Parameter(torch.rand(int(self.lens_num / 4), 1, dtype=torch.cfloat))
+            self.lens_width = int(np.sqrt(self.lens_num))
+            self.gain = 1 / self.lens_num
+        else:
+            print("Wrong lens dimension.")
+            return
+            
+        self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.float).to(device)
+        
+
+    def get_w(self):
+        # return self.w / torch.abs(self.w)
+        # return 
+        # w = self.w / torch.abs(self.w)
+        # w = self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
+        w_abs = self.w.abs()
+        w_abs = torch.clamp(w_abs, min= 1)
+        w = self.w / w_abs
+        w_half = torch.flipud(torch.fliplr(w))
+        return torch.vstack((w, w_half[1:]))
+
+        # return self.w  / torch.sum(self.w.abs(), 1).unsqueeze(-1)
+    def get_theta(self):
+        if(self.lens_type == "1D"):
+            theta = torch.vstack((self.theta, torch.flipud(self.theta)))
+            with torch.no_grad():
+                return theta / torch.abs(theta)
+                # return theta
+        elif(self.lens_type == "2D"):
+            theta = torch.zeros(self.lens_width, self.lens_width, dtype=torch.cfloat).to(self.device)
+            
+            sub_mat_width = int(self.lens_width / 2)
+            
+            if(not self.use_lagrange):
+                theta_squeeze = (self.theta / self.theta.abs()).view(sub_mat_width, -1)
+            else:
+                theta_squeeze = self.theta.view(sub_mat_width, -1)
+            # test_index = torch.from_numpy(np.arange(64)).view(8,8)
+            # target_index = torch.zeros(16, 16)
+            
+            for mi in range(sub_mat_width):
+                theta[mi, 0:sub_mat_width] = theta_squeeze[mi]
+                # target_index[mi, 0:8] = test_index[mi]
+                theta[mi, sub_mat_width:self.lens_width] = torch.flipud(theta_squeeze[mi])
+                # target_index[mi, 8:16] = torch.flipud(test_index[mi])
+                theta[self.lens_width-1-mi] = theta[mi]
+                # target_index[15-mi] = target_index[mi]
+                
+            return theta.view(-1)
+    
+    def get_weights(self):
+        max_angle = 60
+        atten = -0.2
+        x = np.arange(-max_angle, max_angle+1)
+        return atten / max_angle ** 2 * torch.from_numpy(x)**2 + 1
+    
+    def set_side_lobe_gain(self, side_lobe_gain):
+        self.side_lobe_gain = side_lobe_gain
+        
+
+    def forward(self):
+        w = self.get_w()
+        theta = self.get_theta()
         # theta = self.get_theta()
         lens_in = torch.matmul(w, self.G)
 
@@ -353,110 +410,157 @@ class Model_Basic(nn.Module):
         sout = sout / self.array_num / self.lens_num
         
         if(self.lens_type == "1D"):
-            K = 0.02
-            var_gain = 100
+            # K = 0.01
+            var_gain = 50
         elif(self.lens_type == "2D"):
-            K = 0.02
-            var_gain = 80
+            # K = 0.04
+            var_gain = 200
         diag_out = 0
         diag_sum = 0
         weights = self.get_weights().to(self.device)
         
-        diag_out += torch.sum(torch.diag(sout, 0) * weights)
-        diag_sum += torch.sum(torch.diag(sout, 0))
+        diag_out += torch.sum(torch.diag(sout, 0))
         
         var_loss = var_gain * torch.std(torch.diag(sout) / weights)
-        amp_loss = -diag_out \
-            + K*(torch.sum(sout) - diag_sum)
-        out = amp_loss + var_loss
         
-        print("Amp loss: ", amp_loss.detach().numpy(), " Var loss: ", var_loss.detach().numpy())
+        use_mini_max = False
+        use_sidelob_cancel = False
+        use_adaptive_minimax = False
         
-        # out = -(1+K)*diag_out \
-        #     + K*(torch.sum(sout.abs()**2) - diag_sum)\
-        #     + 0 * torch.var(torch.diag(sout).abs() * self.add_weights)
+        if(use_sidelob_cancel):
+            ignore_angle = 5
+            for ti in range(-ignore_angle,ignore_angle+1):
+                diag_sum += torch.sum(torch.diag(sout, ti))
+                
+            # for ti in range(180 - 30, 180):
+            #     # print(ti)
+            #     diag_sum += torch.sum(torch.diag(sout, ti))
+            
+            # for ti in range(-180, -180+30):
+            #     # print(ti)
+            #     diag_sum += torch.sum(torch.diag(sout, ti))
+                
+            amp_loss = -diag_out \
+            + self.side_lobe_gain*(torch.sum(sout) - diag_sum)
+        
+        if(use_mini_max):
+            second_pks = 0
+            # print(self.code_num)
+            for i in range(self.code_num):
+                pks, _ = find_peaks(sout[i].detach().numpy())
+                values, index = sout[i][pks].abs().sort()
+                if(index.shape[0]>=1):
+                    if(pks[index[0]] == i):
+                        if(index.shape[0]>1):
+                            second_pks += sout[i][pks[index[1:]]].sum()
+                    else:
+                        second_pks += sout[i][pks[index[0:]]].sum()
+            amp_loss = -1*diag_out \
+                + 0.09*second_pks
+            # print(second_pks.detach().numpy())
+            # amp_loss += 2000*K*second_pks.sum()
+            # print(20000000*second_pks)
+
+        out = amp_loss + var_loss + 0*torch.mean(self.w.abs()**2)
         return out
     
 class Model_Tune(nn.Module):
     """Custom Pytorch model for gradient optimization.
     """
-    def __init__(self, device):
+    def __init__(self, filename, device):
         super().__init__()
         # initialize weights with random numbers
-        mat = scipy.io.loadmat('parameters.mat')
-        params = scipy.io.loadmat('optimal.mat')
+        mat = scipy.io.loadmat(filename)
+        # params = scipy.io.loadmat('optimal.mat')
 
         self.array_num = mat['G'].shape[0]
         self.code_num = mat['A'].shape[0]
         self.lens_num = mat['steerVec'].shape[0]
         self.device = device
- 
-        # self.theta = torch.from_numpy(params['len_theta']).to(torch.cfloat).to(device)
-        theta = torch.from_numpy(params['len_theta'])
         
-        self.w = nn.Parameter(torch.from_numpy(params['speaker_w']).to(torch.cfloat))
-        if(self.lens_num == 16):
-            # self.theta = nn.Parameter(torch.randn(int(self.lens_num / 2), 1, dtype=torch.cfloat))
-            self.lens_type = "1D"
-            self.gain = 1
-            self.theta = nn.Parameter(theta[0:int(self.lens_num / 2)].to(torch.cfloat))
-        elif(self.lens_num == 256):
-            # self.theta = nn.Parameter(torch.randn(int(self.lens_num / 4), 1, dtype=torch.cfloat))
-            self.lens_type = "2D"
-            self.gain = 1 / 500
-            self.theta = nn.Parameter(theta[0][0:int(self.lens_num / 4)].to(torch.cfloat))
-        
-        # w_optimal = params['speaker_w']
-        self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)  
+        self.use_lagrange = False
+        self.G = torch.from_numpy(mat['G']).to(torch.cfloat).to(device)
         self.steerVec = torch.from_numpy(mat['steerVec']).to(torch.cfloat).to(device)
         self.sweep_angle = torch.from_numpy(mat['sweep_angle']).to(device).view(-1)
-        # self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.cfloat).to(device)
         
-        # self.w = nn.Parameter(torch.rand(self.steerVec.shape[1], self.array_num, dtype=torch.cfloat))
-        # self.theta = nn.Parameter(torch.randn(int(self.lens_num / 2), 1, dtype=torch.cfloat))
-        # with torch.no_grad():
-        #     for ti in range(self.sweep_angle.shape[0]):
-        #         self.w[self.sweep_angle[ti]+90] = torch.from_numpy(w_optimal[ti]).to(torch.cfloat)
+        self.w = nn.Parameter(torch.rand(int((self.steerVec.shape[1]+1)/2), self.array_num, dtype=torch.cfloat))
         
-        # self.A = torch.from_numpy(mat['A']).to(torch.cfloat).to(device)
+        self.lens_type = mat['lens_dimension']
+        if(self.lens_type == "1D"):
+            self.theta = nn.Parameter(torch.rand(int(self.lens_num / 2), 1, dtype=torch.cfloat))
+            
+            self.gain = 1 / self.lens_num
+        elif(self.lens_type == "2D"):
+            self.theta = nn.Parameter(torch.rand(int(self.lens_num / 4), 1, dtype=torch.cfloat))
+            self.lens_width = int(np.sqrt(self.lens_num))
+            self.gain = 1 / self.lens_num
+        else:
+            print("Wrong lens dimension.")
+            return
         
-        # self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.float).to(device)
+        self.add_weights = torch.from_numpy(mat['add_weights']).to(torch.float).to(device)
+        
+        if(self.use_lagrange):
+            self.lambda1 = nn.Parameter(torch.rand_like(self.theta)).to(device)
+            self.lambda2 = nn.Parameter(torch.rand_like(self.w)).to(device)
+            self.v1 = nn.Parameter(torch.rand_like(self.w)).to(device)
 
     def get_w(self):
         # return self.w / torch.abs(self.w)
-        return self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
+        # return 
+        # w = self.w / torch.max(self.w.abs(), dim=1, keepdim=True)[0]
+        # with torch.no_grad():
+        w_abs = self.w.abs()
+        w_abs = torch.clamp(w_abs, min= 1)
+        w = self.w / w_abs
+        w_half = torch.flipud(torch.fliplr(w))
+        return torch.vstack((w, w_half[1:]))
         # return self.w  / torch.sum(self.w.abs(), 1).unsqueeze(-1)
     def get_theta(self):
         if(self.lens_type == "1D"):
-            return self.theta / torch.abs(self.theta)
+            theta = torch.vstack((self.theta, torch.flipud(self.theta)))
+            if(not self.use_lagrange):
+                with torch.no_grad():
+                    return theta / torch.abs(theta)
+            else:
+                return theta
         elif(self.lens_type == "2D"):
-            theta = torch.zeros(16, 16, dtype=torch.cfloat).to(self.device)
-            aa = (self.theta / self.theta.abs()).view(8, -1)
+            theta = torch.zeros(self.lens_width, self.lens_width, dtype=torch.cfloat).to(self.device)
+            
+            sub_mat_width = int(self.lens_width / 2)
+            
+            if(not self.use_lagrange):
+                theta_squeeze = (self.theta / self.theta.abs()).view(sub_mat_width, -1)
+            else:
+                theta_squeeze = self.theta.view(sub_mat_width, -1)
             # test_index = torch.from_numpy(np.arange(64)).view(8,8)
             # target_index = torch.zeros(16, 16)
             
-            for mi in range(8):
-                theta[mi, 0:8] = aa[mi]
+            for mi in range(sub_mat_width):
+                theta[mi, 0:sub_mat_width] = theta_squeeze[mi]
                 # target_index[mi, 0:8] = test_index[mi]
-                theta[mi, 8:16] = torch.flipud(aa[mi])
+                theta[mi, sub_mat_width:self.lens_width] = torch.flipud(theta_squeeze[mi])
                 # target_index[mi, 8:16] = torch.flipud(test_index[mi])
-                theta[15-mi] = theta[mi]
-                # target_index[15-mi] = target_index[mi]
+                theta[self.lens_width-1-mi] = theta[mi]
+                # target_in dex[15-mi] = target_index[mi]
                 
-            return (theta / torch.abs(theta)).view(-1)
+            return theta.view(-1)
     
     def get_weights(self):
         x = np.arange(-90, 91)
-        return -0.2 / 90 ** 2 * torch.from_numpy(x)**2 + 1
+        return -0.6 / 90 ** 2 * torch.from_numpy(x)**2 + 1
 
     def forward(self):
         w = self.get_w()
         theta = self.get_theta()
-        # theta = torch.vstack((theta, torch.flipud(theta)))
-        if(self.lens_type == "1D"):
-            theta = torch.vstack((theta, torch.flipud(theta)))
+           
+        # theta = self.get_theta()
         lens_in = torch.matmul(w, self.G)
+
         lens_out = torch.matmul(lens_in, torch.diag(theta.squeeze()))
-        sout = torch.matmul(lens_out, self.steerVec)    
-        return -torch.sum(torch.diag(sout, 0).abs()**2) / self.lens_num
-    
+        sout = torch.matmul(lens_out, self.steerVec)
+        
+        sout = sout.abs() ** 2
+        sout = sout / self.array_num / self.lens_num
+        
+        return -torch.sum(torch.diag(sout, 0))

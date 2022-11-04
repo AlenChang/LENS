@@ -1,5 +1,5 @@
 %% STEP1 Define field
-field_len = 40;
+field_len = 240;
 gridsize = 0.1;
 field2 = build_sound_field(field_len, field_len, gridsize);
 
@@ -12,11 +12,11 @@ steering_angle = 10; % (-90, 90)
 focusing_point = [-field_len/2+10, 10 * tan(steering_angle / 180 * pi)];
 lens_spacing = 0.5;
 fc = 20e3;
-lens = build_speakers(num_lens, lens_center, lens_spacing, fc);
+lens = build_speakers(num_lens, lens_center, lens_spacing, fc, '2D');
 focusing_type = 'direction'; % {'direction', 'point'}
 % lens.delay = ones(lens.num, 1);
 lens = get_lens_delay(lens, speaker, field_speaker);
-lens = backstepping(lens, focusing_point, focusing_type);
+% lens = backstepping(lens, focusing_point, focusing_type);
 % lens.weights = conj(lens.weights);
 
 %% STEP2 Compute sound field

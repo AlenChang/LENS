@@ -9,18 +9,18 @@ rng(seed);
 
 % use 96KHz as the sampling frequency for the WAV file
 % later may want to switch to 44.1KHz
-Fs = 48000;
+Fs = 48e3;
 
 % consider [32KHz,44KHz] instead of [20KHz, 48KHz] to leave enough guard band
 % on both sides.  BW = f_max - f_min = 12000 = Fs/8.  For simplicity, we 
 % only consider Fs/2^k, later should be able to extend to more general case
 f_min = 17000;   
-f_max = 23000;
+f_max = 20000;
 
 % use 128 samples so that eacy OFDM symbol is not too narrow
 Nfft = 128;
 Nfft_useful = Nfft * (f_max - f_min) / Fs;
-
+% keyboard
 % 1/4 symbols for cyclic prefix
 Ncp = Nfft / 4;
 Ntx = 1;
@@ -29,6 +29,8 @@ state = 4831;
 
 % modulated symbols need to be a multiple of Nfft_useful!
 data_size = 256;
+
+% keyboard
 
 %--------------------------------------------------------------------------
 % 0) Generate CDMA code.  It is important to use a primitive generator polynomial.
@@ -86,6 +88,7 @@ modSymbols = step(hModulator4, cdma_data');
 % 6) add preamble for synchronization                        
 %--------------------------------------------------------------------------
 preamble_length = Nfft_useful * 4;
+% keyboard
 pns = comm.PNSequence('Polynomial',[8 6 5 4 0], 'SamplesPerFrame', preamble_length, ...
                       'InitialConditions',[1 0 0 0 1 0 0 1]);
 % keyboard
@@ -165,7 +168,12 @@ wav_packet = wav_packet * Nfft / Nfft_useful;
 %wav_packet = [(rand(1,30)*2-1) wav_packet];
 
 filename = sprintf('sent_packet%d.wav',seed);      
-audiowrite(filename, wav_packet,Fs);
+% keyboard
+audioout = repmat(wav_packet, 1, round(5 * Fs / length(wav_packet)));
+audiowrite(filename, audioout,Fs);
+audioout = audioout';
+audioout = [audioout zeros(size(audioout))];
+audiowrite('tx.wav', audioout,Fs);
 size(wav_packet)
 
 return

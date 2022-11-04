@@ -16,7 +16,7 @@ function field = compute_field_pressure(field, speaker)
         end
 
         field.sound_pressure = field.sound_pressure + ...
-            speaker.weights_out(ti) * exp(1j * (-2 * pi * speaker.fc * d / speaker.c)) ./ (2 * pi * d);
+            speaker.weights_out(ti) * exp(1j * (-2 * pi * speaker.fc * d / speaker.c));
         %                 ./ (2*pi*sqrt(d));
     end
 

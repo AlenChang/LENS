@@ -17,16 +17,14 @@ end
 
 function R = transfer_func(target, speaker)
     R = zeros(target.numel, speaker.numel);
-
+    % keyboard
+    d = zeros(target.numel, speaker.numel);
     for ti = 1:target.numel
-
         for ni = 1:speaker.numel
-            d = compute_distance(target.locs(ti, :), speaker.locs(ni, :));
-            R(ti, ni) = exp(-1j * 2 * pi * speaker.fc * d / speaker.c) / (2 * pi * d);
+            d(ti, ni) = compute_distance(target.locs(ti, :), speaker.locs(ni, :));
         end
-
     end
-
+    R = exp(-1j * 2 * pi * speaker.fc * d / speaker.c) ./ (2 * pi * d);
 end
 
 function weights = solve_least_square(R, b)
